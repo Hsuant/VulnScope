@@ -1,0 +1,68 @@
+// ── 色彩系统（运行时切换，值指向 themes.scss 中的 CSS 自定义属性） ──
+// 所有颜色值均通过 CSS 自定义属性实现运行时主题切换，
+// 非颜色值（排版/间距/圆角/过渡）保持 compile-time 不变。
+
+// ── 颜色 ────────────────────────────────────────────────────────
+$bg-primary: var(--vs-bg-primary);
+$bg-secondary: var(--vs-bg-secondary);
+$bg-tertiary: var(--vs-bg-tertiary);
+$bg-elevated: var(--vs-bg-elevated);
+
+$border-color: var(--vs-border-color);
+$border-subtle: var(--vs-border-subtle);
+
+$text-primary: var(--vs-text-primary);
+$text-secondary: var(--vs-text-secondary);
+$text-disabled: var(--vs-text-disabled);
+$text-inverse: var(--vs-text-inverse);
+
+$accent: var(--vs-accent);
+$accent-hover: var(--vs-accent-hover);
+
+$accent-rgb: var(--vs-accent-rgb);
+$critical-rgb: var(--vs-critical-rgb);
+$active-rgb: var(--vs-active-rgb);
+$critical: var(--vs-critical);
+$high: var(--vs-high);
+$medium: var(--vs-medium);
+$low: var(--vs-low);
+$info: var(--vs-info);
+
+$active: var(--vs-active);
+$disabled: var(--vs-disabled);
+$archived: var(--vs-archived);
+$draft: $info;
+
+// ── 排版 ──────────────────────────────────────────────────────
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+  'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+$font-title: 16px;
+$font-body: 14px;
+$font-caption: 12px;
+
+$line-height-title: 1.4;
+$line-height-body: 1.5;
+$line-height-caption: 1.5;
+
+// ── 间距网格 ──────────────────────────────────────────────────
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+$spacing-xxl: 32px;
+
+// ── 圆角 ──────────────────────────────────────────────────────
+$radius-sm: 2px;
+$radius-md: 4px;
+$radius-lg: 6px;
+
+// ── 过渡 ──────────────────────────────────────────────────────
+$transition-fast: 150ms ease;
+$transition-normal: 200ms ease;
+
+// ── 侧边栏 ──────────────────────────────────────────────────
+$sidebar-width: 220px;
+$sidebar-collapsed: 64px;
+$topbar-height: 56px;

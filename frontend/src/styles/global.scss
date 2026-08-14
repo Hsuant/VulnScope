@@ -1,0 +1,375 @@
+@use 'sass:color';
+@use 'variables' as *;
+@use 'reset';
+@use 'transitions';
+@use 'themes';
+
+// ── Element Plus 主题覆盖 ─────────────────────────────────────
+:root {
+  --el-color-primary: #{$accent};
+  --el-color-primary-light-3: #{$accent-hover};
+  --el-color-primary-light-5: #{rgba(var(--vs-accent-rgb), 0.5)};
+  --el-color-primary-light-7: #{rgba(var(--vs-accent-rgb), 0.25)};
+  --el-color-primary-light-8: #{rgba(var(--vs-accent-rgb), 0.15)};
+  --el-color-primary-light-9: #{rgba(var(--vs-accent-rgb), 0.08)};
+  --el-color-primary-dark-2: color-mix(in srgb, var(--vs-accent), black 10%);
+  --el-color-success: #{$active};
+  --el-color-warning: #{$medium};
+  --el-color-danger: #{$critical};
+  --el-color-info: #{$info};
+  --el-font-size-base: #{$font-body};
+  --el-font-size-small: #{$font-caption};
+  --el-font-size-large: #{$font-title};
+  --el-border-radius-base: #{$radius-md};
+  --el-transition-duration: 0.15s;
+}
+
+// ── 全局基础样式 ──────────────────────────────────────────────
+html, body {
+  font-family: $font-family;
+  background-color: $bg-primary;
+  color: $text-primary;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+// ── 滚动条 ─────────────────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--vs-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vs-scrollbar-thumb);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--vs-scrollbar-thumb-hover);
+  }
+}
+
+// ── El-Table ───────────────────────────────────────────────────
+.el-table {
+  --el-table-bg-color: #{$bg-secondary};
+  --el-table-tr-bg-color: #{$bg-secondary};
+  --el-table-header-bg-color: #{$bg-tertiary};
+  --el-table-row-hover-bg-color: #{$bg-elevated};
+  --el-table-current-row-bg-color: #{rgba(var(--vs-accent-rgb), 0.08)};
+  --el-table-border-color: #{$border-color};
+  --el-table-text-color: #{$text-primary};
+  --el-table-header-text-color: #{$text-secondary};
+  --el-table-row-hover-text-color: #{$text-primary};
+  font-size: $font-body;
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  th.el-table__cell {
+    font-weight: 500;
+    border-bottom: 1px solid $border-color;
+  }
+
+  td.el-table__cell {
+    border-bottom: 1px solid $border-subtle;
+  }
+
+  &::before {
+    display: none;
+  }
+
+  .el-table__inner-wrapper::before {
+    display: none;
+  }
+}
+
+// ── El-Button ─────────────────────────────────────────────────
+.el-button {
+  --el-button-bg-color: #{$bg-tertiary};
+  --el-button-border-color: #{$border-color};
+  --el-button-text-color: #{$text-primary};
+  --el-button-hover-bg-color: #{$bg-elevated};
+  --el-button-hover-border-color: #{$accent};
+  --el-button-hover-text-color: #{$accent};
+  --el-button-active-bg-color: #{$bg-tertiary};
+  --el-button-active-border-color: #{$accent};
+  font-weight: 400;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  &.el-button--primary {
+    --el-button-bg-color: #{$accent};
+    --el-button-border-color: #{$accent};
+    --el-button-text-color: #{$text-inverse};
+    --el-button-hover-bg-color: #{$accent-hover};
+    --el-button-hover-border-color: #{$accent-hover};
+    --el-button-hover-text-color: #{$text-inverse};
+    --el-button-active-bg-color: #{$accent};
+  }
+
+  &.el-button--danger {
+    --el-button-bg-color: #{$critical};
+    --el-button-border-color: #{$critical};
+    --el-button-text-color: #fff;
+    --el-button-hover-bg-color: #{color-mix(in srgb, var(--vs-critical), white 8%)};
+    --el-button-hover-border-color: #{color-mix(in srgb, var(--vs-critical), white 8%)};
+  }
+
+  // ── text 按钮（透明背景，仅文字颜色） ──
+  &.is-text {
+    --el-button-bg-color: transparent;
+    --el-button-border-color: transparent;
+    --el-button-text-color: #{$text-primary};
+    --el-button-hover-bg-color: #{rgba(var(--vs-accent-rgb), 0.08)};
+    --el-button-hover-border-color: transparent;
+    --el-button-hover-text-color: #{$accent};
+    --el-button-active-bg-color: #{rgba(var(--vs-accent-rgb), 0.12)};
+    --el-button-active-border-color: transparent;
+
+    &.el-button--danger {
+      --el-button-bg-color: transparent;
+      --el-button-text-color: #{$critical};
+      --el-button-hover-bg-color: #{rgba(var(--vs-critical-rgb), 0.08)};
+      --el-button-hover-text-color: #{color-mix(in srgb, var(--vs-critical), black 10%)};
+      --el-button-active-bg-color: #{rgba(var(--vs-critical-rgb), 0.12)};
+    }
+
+    &.el-button--primary {
+      --el-button-bg-color: transparent;
+      --el-button-text-color: #{$accent};
+      --el-button-hover-bg-color: #{rgba(var(--vs-accent-rgb), 0.08)};
+      --el-button-hover-text-color: #{$accent-hover};
+      --el-button-active-bg-color: #{rgba(var(--vs-accent-rgb), 0.12)};
+    }
+  }
+
+  &.is-disabled {
+    opacity: 0.4;
+  }
+}
+
+// ── El-Input ─────────────────────────────────────────────────
+.el-input {
+  --el-input-bg-color: #{$bg-tertiary};
+  --el-input-border-color: #{$border-color};
+  --el-input-text-color: #{$text-primary};
+  --el-input-placeholder-color: #{$text-disabled};
+  --el-input-hover-border-color: #{$accent};
+  --el-input-focus-border-color: #{$accent};
+  --el-input-focus-bg-color: #{$bg-tertiary};
+
+  .el-input__wrapper {
+    background-color: $bg-tertiary;
+    border: 1px solid $border-color;
+    border-radius: $radius-md;
+    box-shadow: none !important;
+    transition: border-color $transition-fast, background-color 0.2s ease;
+
+    &.is-focus {
+      border-color: $accent;
+    }
+
+    &:hover {
+      border-color: $accent;
+    }
+  }
+}
+
+.el-select {
+  --el-select-input-focus-border-color: #{$accent};
+}
+
+// ── El-Dialog ─────────────────────────────────────────────────
+.el-dialog {
+  --el-dialog-bg-color: #{$bg-secondary};
+  --el-dialog-border-color: #{$border-color};
+  --el-dialog-title-font-size: #{$font-title};
+  --el-dialog-content-font-size: #{$font-body};
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+
+  .el-dialog__header {
+    border-bottom: 1px solid $border-color;
+    padding: $spacing-lg;
+    margin: 0;
+  }
+
+  .el-dialog__body {
+    padding: $spacing-lg;
+  }
+
+  .el-dialog__footer {
+    border-top: 1px solid $border-color;
+    padding: $spacing-md $spacing-lg;
+  }
+
+  .el-dialog__title {
+    color: $text-primary;
+    font-size: $font-title;
+    font-weight: 600;
+  }
+}
+
+// ── El-Menu ───────────────────────────────────────────────────
+.el-menu {
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: #{$text-secondary};
+  --el-menu-active-color: #{$accent};
+  --el-menu-hover-bg-color: #{rgba(var(--vs-accent-rgb), 0.08)};
+  --el-menu-hover-text-color: #{$text-primary};
+  border: none;
+
+  .el-menu-item {
+    border-radius: $radius-md;
+    margin: 2px $spacing-sm;
+    width: calc(100% - #{$spacing-sm * 2});
+    transition: all $transition-fast;
+
+    &:hover {
+      background-color: rgba(var(--vs-accent-rgb), 0.08);
+    }
+
+    &.is-active {
+      background-color: rgba(var(--vs-accent-rgb), 0.15);
+      color: $accent;
+    }
+  }
+}
+
+// ── El-Pagination ─────────────────────────────────────────────
+.el-pagination {
+  --el-pagination-button-bg-color: #{$bg-tertiary};
+  --el-pagination-button-color: #{$text-secondary};
+  --el-pagination-hover-color: #{$accent};
+  --el-pagination-button-disabled-bg-color: #{$bg-tertiary};
+  --el-pagination-button-width: 28px;
+  --el-pagination-button-height: 28px;
+  font-size: $font-caption;
+  justify-content: center;
+  padding: $spacing-lg 0;
+}
+
+// ── El-Tag ────────────────────────────────────────────────────
+.el-tag {
+  --el-tag-bg-color: #{rgba(var(--vs-accent-rgb), 0.1)};
+  --el-tag-border-color: #{rgba(var(--vs-accent-rgb), 0.2)};
+  --el-tag-text-color: #{$accent};
+  --el-tag-hover-color: #{$accent};
+  border-radius: $radius-sm;
+}
+
+// ── El-Card ───────────────────────────────────────────────────
+.el-card {
+  --el-card-bg-color: #{$bg-secondary};
+  --el-card-border-color: #{$border-color};
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  background-color: $bg-secondary;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+
+  .el-card__header {
+    border-bottom: 1px solid $border-color;
+    padding: $spacing-lg;
+    color: $text-primary;
+    font-size: $font-title;
+    font-weight: 600;
+  }
+
+  .el-card__body {
+    padding: $spacing-lg;
+  }
+}
+
+// ── El-Select-Dropdown ────────────────────────────────────────
+.el-select-dropdown {
+  background-color: $bg-tertiary;
+  border: 1px solid $border-color;
+  transition: background-color 0.3s ease;
+
+  .el-select-dropdown__item {
+    color: $text-primary;
+
+    &.hover, &:hover {
+      background-color: rgba(var(--vs-accent-rgb), 0.08);
+    }
+
+    &.selected {
+      color: $accent;
+      font-weight: 500;
+    }
+  }
+}
+
+// ── El-Picker (DatePicker) ────────────────────────────────────
+.el-picker-panel {
+  background-color: $bg-tertiary;
+  border: 1px solid $border-color;
+  transition: background-color 0.3s ease;
+}
+
+// ── El-Notification ───────────────────────────────────────────
+.el-notification {
+  background-color: $bg-secondary;
+  border: 1px solid $border-color;
+  transition: background-color 0.3s ease;
+}
+
+// ── El-Message ────────────────────────────────────────────────
+.el-message {
+  background-color: $bg-secondary;
+  border: 1px solid $border-color;
+  box-shadow: none;
+  transition: background-color 0.3s ease;
+}
+
+// ── El-Cascader ───────────────────────────────────────────────
+.el-cascader__wrapper {
+  background-color: $bg-tertiary;
+  border: 1px solid $border-color;
+  box-shadow: none;
+}
+
+// ── El-Progress ───────────────────────────────────────────────
+.el-progress-bar__outer {
+  background-color: $bg-tertiary;
+}
+
+// ── 全局工具类 ─────────────────────────────────────────────────
+.text-accent { color: $accent; }
+.text-secondary { color: $text-secondary; }
+.text-disabled { color: $text-disabled; }
+.text-critical { color: $critical; }
+.text-high { color: $high; }
+.text-medium { color: $medium; }
+.text-low { color: $low; }
+.text-info { color: $info; }
+.text-active { color: $active; }
+
+.mt-sm { margin-top: $spacing-sm; }
+.mt-md { margin-top: $spacing-md; }
+.mt-lg { margin-top: $spacing-lg; }
+.mt-xl { margin-top: $spacing-xl; }
+.mb-sm { margin-bottom: $spacing-sm; }
+.mb-md { margin-bottom: $spacing-md; }
+.mb-lg { margin-bottom: $spacing-lg; }
+.mb-xl { margin-bottom: $spacing-xl; }
+.ml-sm { margin-left: $spacing-sm; }
+.mr-sm { margin-right: $spacing-sm; }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.gap-sm { gap: $spacing-sm; }
+.gap-md { gap: $spacing-md; }
+.gap-lg { gap: $spacing-lg; }
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cursor-pointer { cursor: pointer; }
+.w-full { width: 100%; }

@@ -1,0 +1,425 @@
+# =============================================================================
+# VulnScope 标准 POC 模板 — 完整通用 Nuclei YAML 骨架
+# 版本: 3.1 (2025-03-01, ProjectDiscovery 规范)
+# 官方文档: https://docs.projectdiscovery.io/templates/reference
+# =============================================================================
+#
+# 本模板为 VulnScope 的标准 POC 存储格式，覆盖 Nuclei 所有协议块与变量规范。
+# 使用时按需选取协议块，删除其余部分。
+#
+# 变量命名规范:
+#   {{BaseURL}}       - 用户输入的完整目标 URL（含协议和路径）
+#   {{Hostname}}      - 目标主机名（不含协议和端口）
+#   {{Port}}          - 目标端口号
+#   {{FQDN}}          - 完全限定域名
+#   {{randstr}}       - 随机字符串（长度 8）
+#   {{randstr_N}}     - 指定长度的随机字符串（N 为数字，如 {{randstr_16}}）
+#   {{randint}}       - 随机整数（0-99999）
+#   {{randint_A_B}}   - 指定范围的随机整数（如 {{randint_1000_9999}}）
+#   {{randbase64}}    - 随机 Base64 字符串
+#   {{randhex}}       - 随机十六进制字符串
+#   {{host}}          - {{Hostname}} 的别名
+#   {{ip}}            - 目标 IP 地址
+#   {{request}}       - 原始请求（用于 raw 模式）
+# =============================================================================
+
+id: template-id-here
+
+info:
+  # ---- 必填字段 ----
+  name: Template Name Here
+  author: author-name-here
+  severity: info
+
+  # ---- 漏洞描述 ----
+  description: |
+    Vulnerability description here.
+    Supports multi-line block text with YAML pipe.
+
+  # ---- 修复建议 ----
+  remediation: |
+    How to fix this vulnerability.
+    e.g. Apply vendor patch, upgrade to version X.Y.Z, configure WAF rules.
+
+  # ---- 分类信息 ----
+  classification:
+    cve-id:
+      - "CVE-YYYY-NNNNN"
+    cwe-id:
+      - "CWE-NNN"
+    cvss-metrics: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+    cvss-score: 9.8
+    epss-score: 0.9
+
+  # ---- 参考链接 ----
+  reference:
+    - "https://nvd.nist.gov/vuln/detail/CVE-YYYY-NNNNN"
+    - "https://example.com/advisory"
+
+  # ---- 标签与元数据 ----
+  tags: tag1,tag2,tag3
+
+  metadata:
+    max-request: 1
+    verified: true
+    shodan-query: ""
+    fofa-query: ""
+    hunter-query: ""
+    quake-query: ""
+
+# =============================================================================
+# 模板级变量（全局可用，可在各协议块中 override）
+# =============================================================================
+variables:
+  path: "{{BaseURL}}"
+  token: "{{randstr_32}}"
+  boundary: "{{randhex_16}}"
+
+# =============================================================================
+# HTTP 协议块（最常用，支持 path/raw 两种模式）
+# =============================================================================
+http:
+  # ---- 单请求 / 多请求链 ----
+  - method: GET
+    path:
+      - "{{BaseURL}}/{{path}}"
+      - "{{BaseURL}}/{{path}}/{{randstr}}"
+
+    # ---- 请求头 ----
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      Content-Type: "application/x-www-form-urlencoded"
+      Authorization: "Bearer {{token}}"
+      Cookie: "session={{randstr_16}}"
+
+    # ---- 请求体（POST / PUT 时使用） ----
+    body: "username={{randstr_8}}&password={{randstr_8}}"
+
+    # ---- 重定向配置 ----
+    redirects: true
+    max-redirects: 3
+
+    # ---- 匹配条件 ----
+    matchers-condition: and
+    matchers:
+      # 字符串匹配
+      - type: word
+        part: body
+        words:
+          - "vulnerable_string_1"
+          - "vulnerable_string_2"
+        condition: and
+
+      # 正则匹配
+      - type: regex
+        part: body
+        regex:
+          - "(uid|gid)=[0-9]+"
+          - "root:.*:0:0:"
+
+      # 状态码匹配
+      - type: status
+        status:
+          - 200
+          - 302
+
+      # 响应体大小匹配
+      - type: size
+        part: body
+        lt: 10000
+        gt: 100
+
+      # DSL 表达式匹配
+      - type: dsl
+        dsl:
+          - "len(body) > 100 && len(body) < 10000"
+          - "contains(body, 'admin') || contains(body, 'root')"
+          - "status_code == 200 && len(body) > 500"
+
+      # 二进制匹配
+      - type: binary
+        binary:
+          - "504b0304"
+          - "4d5a9000"
+
+      # 条件匹配（多 matcher 组合）
+      - type: condition
+        condition: |
+          contains(body, '{{token}}') && status_code == 200
+
+    # ---- 提取器 ----
+    extractors:
+      # 正则提取
+      - type: regex
+        part: body
+        internal: true
+        group: 1
+        regex:
+          - "version: ([0-9.]+)"
+          - "token: ([a-f0-9]{32})"
+
+      # JSON 提取
+      - type: json
+        json:
+          - ".data.token"
+          - ".data.id"
+
+      # XPath 提取
+      - type: xpath
+        attribute: href
+        xpath:
+          - "/html/body/div/a"
+
+      # Key-Value 提取
+      - type: kval
+        kval:
+          - "content_type"
+          - "server"
+
+      # DSL 提取
+      - type: dsl
+        dsl:
+          - "base64_decode(body)"
+          - "md5(hex_encode(body))"
+
+    # ---- 模糊测试（payload 注入） ----
+    attack: batteringram
+    payloads:
+      injection:
+        - "' OR '1'='1"
+        - "' UNION SELECT * FROM users--"
+        - "<script>alert(1)</script>"
+      path_traversal:
+        - "../../../etc/passwd"
+        - "..\\..\\..\\windows\\win.ini"
+
+  # ---- raw 模式（完整 HTTP 报文） ----
+  - raw:
+      - |-
+        POST /{{path}} HTTP/1.1
+        Host: {{Hostname}}
+        User-Agent: Mozilla/5.0
+        Content-Type: application/x-www-form-urlencoded
+        Cookie: session={{randstr_16}}
+
+        username={{randstr_8}}&password={{randstr_8}}
+
+    # ---- 不安全模式（不自动添加 header，不自动处理重定向） ----
+    unsafe: true
+
+    # ---- Cookie 复用 ----
+    cookie-reuse: true
+
+    # ---- 请求条件标记（req-condition 配合 DSL 使用） ----
+    req-condition: true
+
+    # ---- 多请求交互 ----
+    # 使用 {{interactsh-url}} 配合 OOB 检测
+    # 需在变量中声明 interactsh-url
+    self-contained: true
+
+    # ---- 多线程 ----
+    threads: 5
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "text/html"
+          - "application/json"
+
+      - type: word
+        part: body
+        words:
+          - "{{token}}"
+
+    extractors:
+      - type: regex
+        part: body
+        internal: true
+        name: extracted_token
+        regex:
+          - "csrf_token: ([a-f0-9]{32})"
+
+# =============================================================================
+# DNS 协议块
+# =============================================================================
+dns:
+  - name: "{{FQDN}}"
+    type: A
+    class: inet
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "NXDOMAIN"
+        part: error
+        negative: true
+
+      - type: dsl
+        dsl:
+          - "len(dns_a) > 0"
+
+# =============================================================================
+# SSL/TLS 协议块
+# =============================================================================
+ssl:
+  - address: "{{Hostname}}:{{Port}}"
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        words:
+          - "self-signed"
+          - "expired"
+        part: certificate_issuer
+
+      - type: dsl
+        dsl:
+          - "tls_version == 'tls10' || tls_version == 'tls11'"
+          - "contains(tls_subject, 'CN=')"
+
+      - type: word
+        words:
+          - "SHA1"
+        part: certificate_signature
+
+# =============================================================================
+# Network 协议块（原始 TCP/UDP 协议交互）
+# =============================================================================
+network:
+  # ---- 多阶段交互 ----
+  - inputs:
+      - data: "{{hex_decode('00000000')}}"
+        read: 1024
+      - data: "{{hex_decode('00000001')}}"
+        read: 1024
+
+    read-size: 2048
+    host:
+      - "{{Hostname}}"
+      - "{{Hostname}}:{{Port}}"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "expected_response"
+        part: data
+
+      - type: binary
+        binary:
+          - "00000001"
+        part: data
+
+# =============================================================================
+# Headless 协议块（无头浏览器，需要 nuclei -headless 参数）
+# =============================================================================
+headless:
+  - steps:
+      # 导航
+      - args:
+          url: "{{BaseURL}}"
+        action: navigate
+
+      # 等待元素加载
+      - args:
+          selector: "#login-form"
+        action: wait
+
+      # 输入框赋值
+      - args:
+          x: "//input[@name='username']"
+          value: "{{randstr_8}}"
+        action: setvalue
+
+      # 点击按钮
+      - args:
+          x: "//button[@type='submit']"
+        action: click
+
+      # 执行 JavaScript
+      - args:
+          code: "document.querySelector('#result').innerText"
+        action: executejs
+
+      # 截图
+      - args:
+          fullpage: true
+        action: screenshot
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "dashboard"
+        part: data
+
+# =============================================================================
+# WebSocket 协议块
+# =============================================================================
+websocket:
+  - address: "ws://{{Hostname}}:{{Port}}/ws"
+    input:
+      data: '{"action":"ping","token":"{{randstr_16}}"}'
+
+    read-size: 4096
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "pong"
+        part: data
+
+# =============================================================================
+# File 协议块（本地文件读取）
+# =============================================================================
+file:
+  - extensions:
+      - all
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "{{BaseURL}}"
+        part: content
+        negative: true
+
+# =============================================================================
+# Code 协议块（OS 命令执行，需 nuclei -code 参数）
+# =============================================================================
+code:
+  - engine: sh
+    source: |
+      curl -s http://{{Hostname}}:{{Port}}/ --max-time 5
+
+    matchers:
+      - type: word
+        words:
+          - "expected"
+        part: stdout
+
+# =============================================================================
+# 内部控制
+# =============================================================================
+# 匹配到第一个结果后停止后续请求
+stop-at-first-match: true
+
+# =============================================================================
+# HyperText Transfer Protocol Secure (HTTPS) 协议块
+# HTTP 协议块的别名，用于明确指定 HTTPS 请求
+# 语法与 http 块完全一致
+# =============================================================================
+# https:
+#   - method: GET
+#     path:
+#       - "{{BaseURL}}"
+#     matchers:
+#       - type: word
+#         words:
+#           - "example"
+#         part: body

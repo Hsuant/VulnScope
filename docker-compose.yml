@@ -1,0 +1,43 @@
+# VulnScope Docker Compose
+# 使用方式: docker compose up -d
+# 访问地址: http://localhost:8000 (后端) / http://localhost:5173 (前端)
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vulnscope-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - VULNSCOPE_APP_ENV=dev
+      - VULNSCOPE_DB_BACKEND=sqlite
+      - VULNSCOPE_SECRET_KEY=${VULNSCOPE_SECRET_KEY:-dev-only-change-me-in-production-32b}
+      - VULNSCOPE_SEED_ADMIN_USERNAME=admin
+      - VULNSCOPE_SEED_ADMIN_PASSWORD=${VULNSCOPE_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - vulnscope-data:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    image: node:20-alpine
+    container_name: vulnscope-frontend
+    ports:
+      - "5173:5173"
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  vulnscope-data:
