@@ -147,14 +147,38 @@
         </div>
       </div>
 
-      <!-- 右列：代码内容 -->
+      <!-- 右列：代码/文档内容 -->
       <div class="detail-right">
         <div class="code-header">
-          <h3 class="section-title">POC 内容</h3>
-          <el-button size="small" text :icon="CopyDocument" @click="copyContent">复制全文</el-button>
+          <h3 class="section-title">{{ isMarkdown ? '文档内容' : 'POC 内容' }}</h3>
+          <div class="code-header-actions">
+            <el-radio-group v-if="isMarkdown" v-model="mdView" size="small" class="md-view-switch">
+              <el-radio-button value="rendered">渲染</el-radio-button>
+              <el-radio-button value="raw">源码</el-radio-button>
+            </el-radio-group>
+            <el-button v-if="isMarkdown" size="small" text :icon="Download" @click="downloadMd">导出 .md</el-button>
+            <el-button size="small" text :icon="CopyDocument" @click="copyContent">复制全文</el-button>
+          </div>
         </div>
-        <div class="code-container">
-          <pre class="code-block"><code>{{ poc.content }}</code></pre>
+        <div class="code-container" :class="{ 'is-markdown': isMarkdown && mdView === 'rendered' }">
+          <!-- Markdown 渲染 + 目录 -->
+          <div v-if="isMarkdown && mdView === 'rendered'" class="md-content-wrap">
+            <div class="md-rendered-scroll">
+              <MarkdownRenderer :content="poc.content" @headings="(h: MdHeading[]) => (toc = h)" />
+            </div>
+            <aside v-if="toc.length" class="md-toc">
+              <div class="md-toc-title">目录</div>
+              <a
+                v-for="h in toc"
+                :key="h.slug"
+                class="md-toc-item"
+                :class="`md-toc-l${h.level}`"
+                @click="scrollToHeading(h.slug)"
+              >{{ h.text }}</a>
+            </aside>
+          </div>
+          <!-- 源码 / 原始内容 -->
+          <pre v-else class="code-block"><code>{{ poc.content }}</code></pre>
         </div>
       </div>
     </div>
@@ -178,7 +202,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Edit, CopyDocument, Delete, Refresh } from '@element-plus/icons-vue'
+import { Edit, CopyDocument, Delete, Refresh, Download } from '@element-plus/icons-vue'
 import { getPoc, deletePoc as apiDeletePoc, changePocStatus, clonePoc, getPocVersions, getPocSourceRecords } from '@/api/poc'
 import { usePermission } from '@/composables/usePermission'
 import { formatDate, formatRelativeTime, copyToClipboard } from '@/utils/format'
@@ -188,6 +212,8 @@ import SeverityBadge from '@/components/common/SeverityBadge.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import TagChip from '@/components/common/TagChip.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import MarkdownRenderer from '@/components/poc/MarkdownRenderer.vue'
+import type { MdHeading } from '@/utils/markdown'
 import type { PocDetail, PocVersion, PocSourceRecord } from '@/types/poc'
 
 const route = useRoute()
@@ -202,6 +228,11 @@ const sourceRecords = ref<PocSourceRecord[]>([])
 const cloneDialogVisible = ref(false)
 const cloneName = ref('')
 const cloning = ref(false)
+// Markdown 视图模式：渲染 / 源码
+const mdView = ref<'rendered' | 'raw'>('rendered')
+const toc = ref<MdHeading[]>([])
+
+const isMarkdown = computed(() => poc.value?.format === 'markdown')
 
 const allowedTransitions = computed(() => {
   if (!poc.value) return []
@@ -274,6 +305,24 @@ async function copyContent() {
     await copyToClipboard(poc.value.content)
     ElMessage.success('已复制到剪贴板')
   }
+}
+
+function downloadMd() {
+  if (!poc.value?.content) return
+  const blob = new Blob([poc.value.content], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${poc.value.name || 'poc'}.md`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function scrollToHeading(slug: string) {
+  const el = document.getElementById(slug)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function viewVersion(v: PocVersion) {
@@ -446,6 +495,75 @@ onMounted(loadData)
   color: $text-primary;
   white-space: pre;
   word-wrap: normal;
+}
+
+.code-header-actions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.md-view-switch {
+  :deep(.el-radio-button__inner) {
+    padding: 5px 12px;
+  }
+}
+
+// Markdown 渲染布局
+.code-container.is-markdown {
+  padding: 0;
+}
+
+.md-content-wrap {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.md-rendered-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: $spacing-xl $spacing-xl $spacing-xl $spacing-lg;
+}
+
+.md-toc {
+  width: 200px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: $spacing-lg;
+  border-left: 1px solid $border-color;
+  background: $bg-tertiary;
+}
+
+.md-toc-title {
+  font-size: $font-caption;
+  font-weight: 600;
+  color: $text-secondary;
+  margin-bottom: $spacing-sm;
+}
+
+.md-toc-item {
+  display: block;
+  font-size: $font-caption;
+  line-height: 1.5;
+  color: $text-secondary;
+  cursor: pointer;
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color $transition-fast;
+
+  &:hover {
+    color: $accent;
+  }
+
+  &.md-toc-l2 { padding-left: 0; font-weight: 500; color: $text-primary; }
+  &.md-toc-l3 { padding-left: 12px; }
+  &.md-toc-l4 { padding-left: 24px; }
+  &.md-toc-l5,
+  &.md-toc-l6 { padding-left: 36px; }
 }
 
 .no-data {

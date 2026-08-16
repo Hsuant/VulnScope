@@ -21,10 +21,11 @@ export const SOURCE_MAP: Record<string, string> = {
 }
 
 export const FORMAT_MAP: Record<string, string> = {
-  'nuclei-yaml': 'Nuclei',
+  'nuclei': 'Nuclei',
   json: 'JSON',
   pocsuite3: 'Pocsuite3',
-  'raw-script': '原始脚本',
+  'raw-script': 'Script',
+  markdown: 'Markdown',
 }
 
 export const ACTION_MAP: Record<string, string> = {
@@ -78,10 +79,11 @@ export const SOURCE_OPTIONS = [
 ]
 
 export const FORMAT_OPTIONS = [
-  { value: 'nuclei-yaml', label: 'Nuclei' },
+  { value: 'nuclei', label: 'Nuclei' },
   { value: 'pocsuite3', label: 'Pocsuite3' },
   { value: 'json', label: 'JSON' },
-  { value: 'raw-script', label: '原始脚本' },
+  { value: 'raw-script', label: 'Script' },
+  { value: 'markdown', label: 'Markdown' },
 ]
 
 export const STATUS_TRANSITIONS: Record<string, string[]> = {

@@ -31,7 +31,7 @@ class Poc(Base, IntPKMixin, TimestampMixin):
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     severity: Mapped[str] = mapped_column(String(16), nullable=False, default="info", index=True)
-    format: Mapped[str] = mapped_column(String(32), nullable=False, default="nuclei-yaml", index=True)
+    format: Mapped[str] = mapped_column(String(32), nullable=False, default="nuclei", index=True)
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False, index=True)

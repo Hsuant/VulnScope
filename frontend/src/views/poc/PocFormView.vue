@@ -235,7 +235,6 @@
           <div class="editor-header">
             <h3 class="section-title">POC 内容 *</h3>
             <div class="editor-tools">
-              <el-tag size="small">{{ form.format }}</el-tag>
               <el-radio-group
                 v-if="canBuild"
                 v-model="editMode"
@@ -263,7 +262,10 @@
               <el-icon :size="14"><InfoFilled /></el-icon>
               <span>修改源码后切回「表单构建」将自动解析回填字段（高级语法可能无法完全还原）</span>
             </div>
+            <!-- Markdown 编辑/预览 -->
+            <MarkdownEditor v-if="isMarkdown" v-model="form.content" />
             <textarea
+              v-else
               v-model="form.content"
               class="code-textarea"
               :placeholder="editorPlaceholder"
@@ -272,7 +274,7 @@
             />
           </div>
 
-          <div v-if="!canBuild" class="format-hint">
+          <div v-if="!canBuild && !isMarkdown" class="format-hint">
             <el-icon :size="14"><InfoFilled /></el-icon>
             <span>当前格式（{{ formatLabel }}）为脚本类，仅支持源码模式编辑</span>
           </div>
@@ -292,6 +294,7 @@ import { listTags } from '@/api/tag'
 import { SEVERITY_OPTIONS, STATUS_OPTIONS, SOURCE_OPTIONS, FORMAT_OPTIONS, FORMAT_MAP } from '@/utils/constants'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PocBuilder from '@/components/poc/PocBuilder.vue'
+import MarkdownEditor from '@/components/poc/MarkdownEditor.vue'
 import type { TagItem } from '@/types/tag'
 import type { AffectedVersion, Reference } from '@/types/poc'
 import {
@@ -321,7 +324,7 @@ const form = reactive({
   severity: 'info',
   status: 'draft',
   source: 'manual',
-  format: 'nuclei-yaml',
+  format: 'nuclei',
   author: '',
   language: '',
   description: '',
@@ -337,6 +340,7 @@ const form = reactive({
 })
 
 const canBuild = computed(() => canBuildFormat(form.format))
+const isMarkdown = computed(() => form.format === 'markdown')
 const formatLabel = computed(() => FORMAT_MAP[form.format] || form.format)
 
 const rules: Record<string, any> = {
@@ -350,7 +354,7 @@ const rules: Record<string, any> = {
 
 const editorPlaceholder = computed(() => {
   const map: Record<string, string> = {
-    'nuclei-yaml': `id: struts2-s2-045-rce
+    'nuclei': `id: struts2-s2-045-rce
 
 info:
   name: Apache Struts2 S2-045 RCE
@@ -423,6 +427,7 @@ class ExamplePOC(POCBase):
   }
 }`,
     'raw-script': '#!/usr/bin/env python3\n# 原始脚本/模板内容\n# 支持任意语言，language 字段标注脚本类型\n\ndef verify(target: str) -> dict:\n    """POC 验证函数"""\n    result = {"vulnerable": False}\n    # 在此编写验证逻辑\n    return result',
+    markdown: '# 漏洞概述\n\n简要描述漏洞背景与影响。\n\n## 影响版本\n\n- 1.0.0 ~ 2.0.0\n\n## 复现\n\n```http\nGET / HTTP/1.1\nHost: {{Hostname}}\n```\n\n## 修复建议\n\n升级至最新版本。',
   }
   return map[form.format] || '输入 POC 内容...'
 })

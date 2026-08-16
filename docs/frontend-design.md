@@ -611,7 +611,7 @@ service.interceptors.response.use(
 │  │  │ 级别: 高               │   │  │ 行号                  │ ││
 │  │  │ 状态: 已启用           │   │  │ 可折叠                │ ││
 │  │  │ 来源: 手动             │   │  │ 复制按钮              │ ││
-│  │  │ 格式: nuclei-yaml      │   │  └──────────────────────┘ ││
+│  │  │ 格式: nuclei      │   │  └──────────────────────┘ ││
 │  │  │ 语言: -                │   │                           ││
 │  │  │ 作者: xiaoming         │   │                           ││
 │  │  │ 版本: 3                │   │                           ││
@@ -652,7 +652,7 @@ service.interceptors.response.use(
 
 **代码面板**：
 - 使用 Monaco Editor，只读模式
-- 语言根据 `format` 字段切换：nuclei-yaml → yaml, json → json, pocsuite3 → python, raw-script → 对应 `language` 字段
+- 语言根据 `format` 字段切换：nuclei → yaml, json → json, pocsuite3 → python, raw-script → 对应 `language` 字段
 - 右上角：复制全文按钮、在新标签页打开原始内容
 
 **版本历史**：
@@ -716,7 +716,7 @@ service.interceptors.response.use(
 | 严重级别 | el-select | 是 | info | 枚举：info/low/medium/high/critical |
 | 状态 | el-select | 是 | draft | 枚举：draft/active/disabled/archived |
 | 来源 | el-select | 是 | manual | 枚举：manual/imported/ai/crawler |
-| 格式 | el-select | 是 | nuclei-yaml | 枚举：nuclei-yaml/json/pocsuite3/raw-script |
+| 格式 | el-select | 是 | nuclei | 枚举：nuclei/json/pocsuite3/raw-script |
 | 作者 | el-input | 否 | — | 最大 128 字符 |
 | 语言 | el-input | 否 | — | 格式为 raw-script 时显示 |
 | 描述 | el-input type="textarea" | 否 | — | 富文本纯文本 |
@@ -862,7 +862,7 @@ Step 1: 选择导入方式    Step 2: 解析预览    Step 3: 完成报告
 │                                                              │
 │  ┌─ Parser 解析器 ───────────────────────────────────────┐   │
 │  │  ┌─────────────────────────────────────────────────┐   │   │
-│  │  │ nuclei-yaml v1.0.0  ● 已启用                    │   │   │
+│  │  │ nuclei v1.0.0  ● 已启用                    │   │   │
 │  │  │ json-parser v0.1.0  ● 已启用                    │   │   │
 │  │  └─────────────────────────────────────────────────┘   │   │
 │  └────────────────────────────────────────────────────────┘   │
@@ -1234,7 +1234,7 @@ export const SOURCE_MAP: Record<string, string> = {
 }
 
 export const FORMAT_MAP: Record<string, string> = {
-  'nuclei-yaml': 'Nuclei YAML',
+  'nuclei': 'Nuclei YAML',
   json: 'JSON',
   pocsuite3: 'Pocsuite3',
   'raw-script': '原始脚本',

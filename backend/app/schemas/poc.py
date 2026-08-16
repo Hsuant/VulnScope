@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 POC_SEVERITIES = {"info", "low", "medium", "high", "critical"}
 POC_STATUSES = {"draft", "active", "disabled", "archived"}
 POC_SOURCES = {"manual", "imported", "ai", "crawler"}
-POC_FORMATS = {"nuclei-yaml", "json", "pocsuite3", "raw-script"}
+POC_FORMATS = {"nuclei", "json", "pocsuite3", "raw-script", "markdown"}
 
 # 状态流转规则：key -> 允许的目标状态集合
 STATUS_TRANSITIONS: dict[str, set[str]] = {
@@ -88,7 +88,7 @@ class PocCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255, description="中文/显示标题")
     description: str | None = Field(default=None, description="漏洞描述")
     severity: str = Field(default="info", description="严重级别")
-    format: str = Field(default="nuclei-yaml", description="POC 格式")
+    format: str = Field(default="nuclei", description="POC 格式")
     language: str | None = Field(default=None, max_length=32, description="脚本语言")
     content: str = Field(..., min_length=1, description="POC 内容主体")
     author: str | None = Field(default=None, max_length=128, description="作者")
@@ -225,7 +225,7 @@ class PocListItem(BaseModel):
     name: str
     title: str | None = None
     severity: str = "info"
-    format: str = "nuclei-yaml"
+    format: str = "nuclei"
     source: str = "manual"
     status: str = "draft"
     author: str | None = None
@@ -247,7 +247,7 @@ class PocResponse(BaseModel):
     title: str | None = None
     description: str | None = None
     severity: str = "info"
-    format: str = "nuclei-yaml"
+    format: str = "nuclei"
     language: str | None = None
     content: str
     content_hash: str

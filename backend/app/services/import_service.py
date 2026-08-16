@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from typing import Any
 
@@ -33,14 +34,22 @@ class FormatDetector:
 
     # 扩展名映射
     EXTENSION_MAP: dict[str, str] = {
-        ".yaml": "nuclei-yaml",
-        ".yml": "nuclei-yaml",
+        ".yaml": "nuclei",
+        ".yml": "nuclei",
         ".json": "json",
         ".py": "pocsuite3",
         ".go": "raw-script",
         ".rb": "raw-script",
         ".sh": "raw-script",
+        ".md": "markdown",
+        ".markdown": "markdown",
     }
+
+    # Markdown front-matter 起始分隔符（--- 包裹的 YAML 头）
+    _FM_PATTERN = re.compile(r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+
+    # ATX 标题（# ~ ######），用于无扩展名内容的 Markdown 启发式判定
+    _HEADING_PATTERN = re.compile(r"\A#{1,6}[ \t]+")
 
     @classmethod
     def detect(cls, raw: str | bytes, filename: str | None = None) -> str:
@@ -51,14 +60,23 @@ class FormatDetector:
             filename: 可选文件名，用于扩展名辅助判断。
 
         Returns:
-            格式标识：nuclei-yaml / json / pocsuite3 / raw-script
+            格式标识：nuclei / json / pocsuite3 / raw-script / markdown
         """
         if isinstance(raw, str):
             raw_bytes = raw.encode("utf-8")
+            raw_text = raw
         else:
             raw_bytes = raw
+            raw_text = raw.decode("utf-8", errors="replace")
 
         raw_stripped = raw_bytes.lstrip()
+        text_stripped = raw_text.lstrip()
+
+        # 0. 扩展名优先：.md/.markdown 明确为 Markdown（避免被 YAML 兜底误判）
+        if filename:
+            ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+            if ext in {".md", ".markdown"}:
+                return "markdown"
 
         # 1. 检查 JSON 结构
         if raw_stripped.startswith((b"{", b"[")):
@@ -71,22 +89,27 @@ class FormatDetector:
         # 2. 检查 YAML 头
         for start in cls.YAML_STARTS:
             if raw_stripped.startswith(start):
-                return "nuclei-yaml"
+                return "nuclei"
 
         # 3. 检查 Python 脚本（pocsuite3）
         if raw_stripped.startswith((b"import", b"from", b"#!/usr/bin/env python", b"class ")):
             return "pocsuite3"
 
-        # 4. 检查扩展名
+        # 4. Markdown 启发式：front-matter 起始 或 顶格 ATX 标题
+        #    （#!/bin/bash 等无空格的 # 不在此列，避免误判 shell 脚本）
+        if cls._FM_PATTERN.match(text_stripped) or cls._HEADING_PATTERN.match(text_stripped):
+            return "markdown"
+
+        # 5. 检查扩展名（其余扩展名映射）
         if filename:
             ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
             if ext in cls.EXTENSION_MAP:
                 return cls.EXTENSION_MAP[ext]
 
-        # 5. 再次尝试 YAML 解析兜底
+        # 6. 再次尝试 YAML 解析兜底
         try:
             yaml.safe_load(raw_bytes)
-            return "nuclei-yaml"
+            return "nuclei"
         except yaml.YAMLError:
             pass
 
@@ -226,7 +249,7 @@ def _parse_content(raw_content: str | bytes, fmt: str) -> list[Any]:
             raise ValueError(f"Parser 插件 '{fmt}' 解析失败: {exc}") from exc
 
     # 内置兜底解析
-    if fmt == "nuclei-yaml":
+    if fmt == "nuclei":
         from app.plugins.parser.nuclei_parser import parser as nuclei_parser
 
         return nuclei_parser.parse(raw_content, fmt)
@@ -254,7 +277,7 @@ def _parse_content(raw_content: str | bytes, fmt: str) -> list[Any]:
 def _infer_name(text: str, fmt: str) -> str:
     """从内容中推断 POC 名称。"""
     # 尝试从 YAML 提取 id
-    if fmt == "nuclei-yaml":
+    if fmt == "nuclei":
         try:
             doc = yaml.safe_load(text)
             if isinstance(doc, dict) and doc.get("id"):
@@ -370,7 +393,7 @@ def export_pocs(db: Session, poc_ids: list[int], export_format: str = "json") ->
     Args:
         db: 数据库会话。
         poc_ids: 要导出的 POC ID 列表。
-        export_format: 导出格式，json（默认）或 nuclei-yaml。
+        export_format: 导出格式，json（默认）或 nuclei。
 
     Returns:
         导出内容的字符串表示。
@@ -385,7 +408,7 @@ def export_pocs(db: Session, poc_ids: list[int], export_format: str = "json") ->
         if poc:
             pocs.append(poc)
 
-    if export_format == "nuclei-yaml":
+    if export_format == "nuclei":
         return _export_nuclei(pocs)
     else:
         return _export_json(pocs)

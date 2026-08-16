@@ -2,7 +2,7 @@
  * POC 表单构建器核心逻辑。
  *
  * 把结构化的「协议 + 请求 + 匹配器」状态生成/解析为 POC 内容文本，
- * 支持 nuclei-yaml 与 json 两种声明式格式；pocsuite3/raw-script 为代码，
+ * 支持 nuclei 与 json 两种声明式格式；pocsuite3/raw-script 为代码，
  * 不参与结构化构建，仅走源码模式。
  *
  * 生成使用 js-yaml（nuclei）保证输出合法；解析同样走 js-yaml.load，
@@ -753,7 +753,7 @@ export function parseContent(content: string, format: string): BuilderState {
 }
 
 export function canBuild(format: string): boolean {
-  return format === 'nuclei-yaml' || format === 'json'
+  return format === 'nuclei' || format === 'json'
 }
 
 // ── 注入到 payload：把 builder state 持久化到 extra_meta ─────────

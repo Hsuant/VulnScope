@@ -35,15 +35,15 @@ class NucleiParser(PocParser):
     支持标准 ProjectDiscovery 模板语法，提取元数据映射到 NormalizedPoc。
     """
 
-    name: str = "nuclei-yaml"
-    supported_formats: set[str] = {"nuclei-yaml", "yaml"}
+    name: str = "nuclei"
+    supported_formats: set[str] = {"nuclei", "yaml"}
 
     def parse(self, raw: str | bytes, format: str | None = None) -> list[NormalizedPoc]:
         """解析 Nuclei YAML 文本为 NormalizedPoc 列表。
 
         Args:
             raw: YAML 模板文本（str 或 bytes）。
-            format: 格式标识，默认 "nuclei-yaml"。
+            format: 格式标识，默认 "nuclei"。
 
         Returns:
             NormalizedPoc 列表（通常单模板单条，但兼容多文档 YAML）。
@@ -158,7 +158,7 @@ class NucleiParser(PocParser):
             source="imported",
             severity=severity,
             content=content,
-            format="nuclei-yaml",
+            format="nuclei",
             cve_ids=cve_ids,
             tags=tags,
             references=references,

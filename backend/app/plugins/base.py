@@ -25,7 +25,7 @@ POC_CATEGORIES = {
     "other",
 }
 POC_SOURCES = {"manual", "imported", "ai", "crawler"}
-POC_FORMATS = {"nuclei-yaml", "json", "pocsuite3", "raw-script"}
+POC_FORMATS = {"nuclei", "json", "pocsuite3", "raw-script", "markdown"}
 
 
 class NormalizedPoc(BaseModel):
@@ -39,7 +39,7 @@ class NormalizedPoc(BaseModel):
     category: str = "other"
     severity: str = "info"
     content: str  # 模板主体
-    format: str = "nuclei-yaml"
+    format: str = "nuclei"
     language: str | None = None
     cve_ids: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
@@ -53,7 +53,7 @@ class NormalizedPoc(BaseModel):
             errors.append("name 必填")
         if not self.content:
             errors.append("content 必填")
-        elif self.format == "nuclei-yaml" and not self.content.lstrip().startswith(("id:", "info:")):
+        elif self.format == "nuclei" and not self.content.lstrip().startswith(("id:", "info:")):
             errors.append("nuclei 模板必须以 id:/info: 开头")
         if self.severity not in POC_SEVERITIES:
             errors.append(f"非法 severity: {self.severity}")

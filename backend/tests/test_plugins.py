@@ -91,7 +91,7 @@ class TestNucleiParser:
         poc = NormalizedPoc(
             name="test-no-http",
             content="id: test-no-http\n\ninfo:\n  name: Test\n  severity: info\n",
-            format="nuclei-yaml",
+            format="nuclei",
         )
         errors = self.parser.validate(poc)
         # 应该报错缺少请求块
@@ -178,11 +178,11 @@ class TestPluginRegistry:
 
         reg = PluginRegistry()
         parser = NucleiParser()
-        reg.register("parser", "nuclei-yaml", "1.0.0", parser)
+        reg.register("parser", "nuclei", "1.0.0", parser)
 
-        entry = reg.get("parser", "nuclei-yaml")
+        entry = reg.get("parser", "nuclei")
         assert entry is not None
-        assert entry.name == "nuclei-yaml"
+        assert entry.name == "nuclei"
         assert entry.slot == "parser"
         assert entry.enabled is True
 
@@ -191,7 +191,7 @@ class TestPluginRegistry:
         from app.plugins.registry import PluginRegistry
 
         reg = PluginRegistry()
-        reg.register("parser", "nuclei-yaml", "1.0.0", NucleiParser())
+        reg.register("parser", "nuclei", "1.0.0", NucleiParser())
         reg.register("source", "manual", "1.0.0", object())
 
         entries = reg.list()
@@ -202,7 +202,7 @@ class TestPluginRegistry:
         from app.plugins.registry import PluginRegistry
 
         reg = PluginRegistry()
-        reg.register("parser", "nuclei-yaml", "1.0.0", NucleiParser())
+        reg.register("parser", "nuclei", "1.0.0", NucleiParser())
 
         entries = reg.list("parser")
         assert len(entries) == 1
@@ -213,9 +213,9 @@ class TestPluginRegistry:
         from app.plugins.registry import PluginRegistry
 
         reg = PluginRegistry()
-        reg.register("parser", "nuclei-yaml", "1.0.0", NucleiParser())
-        assert reg.set_enabled("parser", "nuclei-yaml", False) is True
-        assert reg.get("parser", "nuclei-yaml").enabled is False
+        reg.register("parser", "nuclei", "1.0.0", NucleiParser())
+        assert reg.set_enabled("parser", "nuclei", False) is True
+        assert reg.get("parser", "nuclei").enabled is False
 
     def test_get_nonexistent(self) -> None:
         from app.plugins.registry import PluginRegistry

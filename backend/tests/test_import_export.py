@@ -66,6 +66,27 @@ SAMPLE_JSON = json.dumps(
     ]
 )
 
+SAMPLE_MD = """---
+name: test-markdown-doc
+title: Test Markdown Doc
+severity: high
+author: tester
+cve:
+  - CVE-2024-9999
+tags: [rce, md-test]
+references:
+  - https://example.com/advisory
+---
+
+# 概述
+
+漏洞正文，含 `inline code` 与代码块：
+
+```python
+print("pwned")
+```
+"""
+
 
 class TestFormatDetector:
     """格式嗅探器测试。"""
@@ -73,7 +94,7 @@ class TestFormatDetector:
     def test_detect_nuclei_yaml(self) -> None:
         from app.services.import_service import FormatDetector
 
-        assert FormatDetector.detect(SAMPLE_NUCLEI_YAML) == "nuclei-yaml"
+        assert FormatDetector.detect(SAMPLE_NUCLEI_YAML) == "nuclei"
 
     def test_detect_json(self) -> None:
         from app.services.import_service import FormatDetector
@@ -90,7 +111,7 @@ class TestFormatDetector:
         from app.services.import_service import FormatDetector
 
         # Nuclei YAML by extension
-        assert FormatDetector.detect("some content", "test.yaml") == "nuclei-yaml"
+        assert FormatDetector.detect("some content", "test.yaml") == "nuclei"
         # JSON by extension
         assert FormatDetector.detect("some content", "test.json") == "json"
 
@@ -100,6 +121,30 @@ class TestFormatDetector:
         # 未知格式降级为 raw-script
         # 使用包含 YAML 允许但非模板的内容触发 fallback
         assert FormatDetector.detect("\x00\x00\x00\x00binary data") == "raw-script"
+
+    def test_detect_markdown_frontmatter(self) -> None:
+        from app.services.import_service import FormatDetector
+
+        # front-matter 起始的文档识别为 markdown（粘贴模式，无扩展名）
+        assert FormatDetector.detect(SAMPLE_MD) == "markdown"
+
+    def test_detect_markdown_by_extension(self) -> None:
+        from app.services.import_service import FormatDetector
+
+        assert FormatDetector.detect("# title", "doc.md") == "markdown"
+        assert FormatDetector.detect("plain text", "doc.markdown") == "markdown"
+
+    def test_detect_markdown_heading(self) -> None:
+        from app.services.import_service import FormatDetector
+
+        # 顶格 ATX 标题（# 后带空格）识别为 markdown
+        assert FormatDetector.detect("# 漏洞概述\n\n正文", None) == "markdown"
+
+    def test_detect_shebang_not_markdown(self) -> None:
+        from app.services.import_service import FormatDetector
+
+        # #! 无空格，不误判为 markdown；按扩展名归为 raw-script
+        assert FormatDetector.detect("#!/bin/bash\necho hi", "run.sh") == "raw-script"
 
 
 class TestImport:
@@ -175,6 +220,30 @@ class TestImport:
         data = resp.json()["data"]
         assert data["total"] >= 1
 
+    def test_import_markdown_success(self, client: TestClient, auth_header: dict) -> None:
+        """导入 Markdown 文档成功，front-matter 字段正确映射。"""
+        result = self._import_content(client, auth_header, SAMPLE_MD)
+        assert result["total"] == 1
+        assert result["success"] == 1
+        assert result["skipped"] == 0
+
+        # 验证 POC 已入库且 format=markdown，severity/CVE 已从 front-matter 映射
+        resp = client.get("/api/v1/pocs/search?q=test-markdown-doc", headers=auth_header)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total"] >= 1
+        item = data["items"][0]
+        assert item["format"] == "markdown"
+        assert item["severity"] == "high"
+        assert "CVE-2024-9999" in item["cve_ids"]
+
+    def test_import_markdown_duplicate(self, client: TestClient, auth_header: dict) -> None:
+        """重复导入相同 Markdown 内容自动跳过。"""
+        self._import_content(client, auth_header, SAMPLE_MD)
+        result2 = self._import_content(client, auth_header, SAMPLE_MD)
+        assert result2["success"] == 0
+        assert result2["skipped"] == 1
+
 
 class TestExport:
     """POC 导出接口测试。"""
@@ -217,10 +286,10 @@ class TestExport:
         assert resp.status_code == 200
         poc_id = resp.json()["data"]["id"]
 
-        resp = client.get(f"/api/v1/export?ids={poc_id}&format=nuclei-yaml", headers=auth_header)
+        resp = client.get(f"/api/v1/export?ids={poc_id}&format=nuclei", headers=auth_header)
         assert resp.status_code == 200
         data = resp.json()["data"]
-        assert data["format"] == "nuclei-yaml"
+        assert data["format"] == "nuclei"
         assert data["count"] == 1
         # 内容应包含原始的 YAML 模板
         assert "test-export-nuclei" in data["content"]

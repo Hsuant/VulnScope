@@ -223,7 +223,7 @@
       <template #default>
         <el-radio-group v-model="exportFormat" class="export-format-group">
           <el-radio value="json">JSON（包含完整元数据）</el-radio>
-          <el-radio value="nuclei-yaml">Nuclei YAML（纯模板）</el-radio>
+          <el-radio value="nuclei">Nuclei YAML（纯模板）</el-radio>
         </el-radio-group>
       </template>
     </ConfirmDialog>
@@ -351,7 +351,7 @@ function extractPath(poc: PocDetail): string {
 function extractPacket(poc: PocDetail): string {
   const content = poc.content || ''
   try {
-    if (poc.format === 'nuclei-yaml') {
+    if (poc.format === 'nuclei') {
       const yaml = loadYaml(content)
       if (yaml) {
         const reqs = yaml.requests || yaml.http || []

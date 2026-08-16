@@ -304,7 +304,7 @@ info:
     fofa: app="Example"
     shodan: http.component:"example"
     source: manual
-    format: nuclei-yaml
+    format: nuclei
     affected:
       - ">= 1.0.0 ~ <= 2.0.0"
 

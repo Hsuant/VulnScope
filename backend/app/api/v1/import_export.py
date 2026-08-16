@@ -1,7 +1,7 @@
 """导入导出 API 路由。
 
 POST /api/v1/import — 上传文件/粘贴文本导入（multipart, 限 10MB）
-GET  /api/v1/export — 导出 POC（JSON / nuclei-yaml）
+GET  /api/v1/export — 导出 POC（JSON / nuclei）
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ async def import_pocs(
     批量上传：多次以 `files` 字段提交文件，每个文件独立走导入管道，
     结果汇总为一份报告。单文件可继续用 `file` 字段（向后兼容）。
     单文件上传限制 10MB，支持格式：
-    - nuclei-yaml（.yaml/.yml）
+    - nuclei（.yaml/.yml）
     - JSON（.json）
     - pocsuite3（.py）
     - raw-script（其他脚本）
@@ -110,7 +110,7 @@ def export_pocs(
     db: DbSession,
     user: CurrentUser,
     ids: str = Query(..., description="POC ID 列表（逗号分隔）"),
-    format: str = Query(default="json", description="导出格式: json / nuclei-yaml"),
+    format: str = Query(default="json", description="导出格式: json / nuclei"),
 ) -> dict:
     """导出 POC。
 

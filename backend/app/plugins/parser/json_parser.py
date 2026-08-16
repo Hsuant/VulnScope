@@ -91,7 +91,7 @@ class JsonParser(PocParser):
             source="imported",
             severity=severity,
             content=content or f"id: {name}\n\ninfo:\n  name: {name}\n  severity: {severity}\n",
-            format="nuclei-yaml" if content else "json",
+            format="nuclei" if content else "json",
             cve_ids=cve_ids,
             tags=tags,
             references=item.get("references", []) or [],

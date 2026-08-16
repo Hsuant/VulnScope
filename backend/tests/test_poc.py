@@ -22,7 +22,7 @@ SAMPLE_POC_CREATE = {
     "title": "Test POC RCE",
     "description": "A test POC for RCE vulnerability",
     "severity": "critical",
-    "format": "nuclei-yaml",
+    "format": "nuclei",
     "content": 'id: test-poc-rce\n\ninfo:\n  name: Test POC RCE\n  severity: critical\n  author: tester\n\nhttp:\n  - method: GET\n    path:\n      - "{{BaseURL}}/test"\n',
     "author": "tester",
     "source": "manual",
@@ -54,7 +54,7 @@ class TestPocCreate:
         assert data["name"] == "test-poc-rce"
         assert data["severity"] == "critical"
         assert data["status"] == "draft"
-        assert data["format"] == "nuclei-yaml"
+        assert data["format"] == "nuclei"
         assert data["source"] == "manual"
         assert data["version"] == 1
         assert len(data["uuid"]) == 36

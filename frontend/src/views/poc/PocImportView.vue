@@ -1,6 +1,6 @@
 <template>
   <div class="poc-import-view">
-    <PageHeader title="导入 POC" description="支持 Nuclei、Pocsuite3、Xray、Goby 四种模板，支持批量多文件，单文件限制 10MB">
+    <PageHeader title="导入 POC" description="支持 Nuclei、Pocsuite3、Xray、Goby 模板及 Markdown 文档，支持批量多文件，单文件限制 10MB">
       <template #actions>
         <el-button v-if="result" @click="resetImport" :icon="Refresh">继续导入</el-button>
         <el-button type="primary" @click="$router.push('/pocs')" :icon="Document">查看 POC 列表</el-button>
@@ -38,7 +38,7 @@
             multiple
             :auto-upload="false"
             :show-file-list="false"
-            accept=".yaml,.yml,.json,.py,.go,.txt"
+            accept=".yaml,.yml,.json,.py,.go,.txt,.md,.markdown"
             :on-change="handleFileChange"
             class="upload-area"
           >
@@ -64,6 +64,10 @@
                 <span class="format-group">
                   <span class="format-label">Goby</span>
                   <span class="format-ext">json / go</span>
+                </span>
+                <span class="format-group">
+                  <span class="format-label">Markdown</span>
+                  <span class="format-ext">md</span>
                 </span>
               </div>
             </div>
@@ -101,12 +105,12 @@
               v-model="pastedContent"
               type="textarea"
               :rows="12"
-              placeholder="在此粘贴 POC 模板内容，支持多模板同时导入（多个 YAML 文档用 --- 分隔）"
+              placeholder="在此粘贴 POC 模板或 Markdown 文档内容，支持多模板同时导入（多个 YAML 文档用 --- 分隔）"
               class="paste-textarea"
             />
             <div class="paste-hint">
               <el-icon :size="14"><InfoFilled /></el-icon>
-              <span>支持 Nuclei（yaml）、Pocsuite3（yaml/py）、Xray（yaml/json）、Goby（json/go）格式，系统将自动识别</span>
+              <span>支持 Nuclei（yaml）、Pocsuite3（yaml/py）、Xray（yaml/json）、Goby（json/go）、Markdown（md）格式，系统将自动识别</span>
             </div>
           </div>
         </div>
@@ -285,6 +289,8 @@ function detectFormatFromName(name: string): string {
     py: 'Pocsuite3',
     go: 'Goby',
     txt: '文本',
+    md: 'Markdown',
+    markdown: 'Markdown',
   }
   return map[ext || ''] || '未知格式'
 }
