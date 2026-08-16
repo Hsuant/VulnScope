@@ -28,28 +28,28 @@ const label = computed(() => SEVERITY_MAP[props.severity] || props.severity)
 
   &.critical {
     color: #fff;
-    background: rgba($critical, 0.2);
-    border: 1px solid rgba($critical, 0.4);
+    background: rgba(var(--vs-critical-rgb), 0.2);
+    border: 1px solid rgba(var(--vs-critical-rgb), 0.4);
   }
   &.high {
     color: #fff;
-    background: rgba($high, 0.2);
-    border: 1px solid rgba($high, 0.4);
+    background: rgba(var(--vs-high-rgb), 0.2);
+    border: 1px solid rgba(var(--vs-high-rgb), 0.4);
   }
   &.medium {
     color: #fff;
-    background: rgba($medium, 0.2);
-    border: 1px solid rgba($medium, 0.4);
+    background: rgba(var(--vs-medium-rgb), 0.2);
+    border: 1px solid rgba(var(--vs-medium-rgb), 0.4);
   }
   &.low {
     color: #fff;
-    background: rgba($low, 0.2);
-    border: 1px solid rgba($low, 0.4);
+    background: rgba(var(--vs-low-rgb), 0.2);
+    border: 1px solid rgba(var(--vs-low-rgb), 0.4);
   }
   &.info {
     color: $text-secondary;
-    background: rgba($info, 0.2);
-    border: 1px solid rgba($info, 0.4);
+    background: rgba(var(--vs-info-rgb), 0.2);
+    border: 1px solid rgba(var(--vs-info-rgb), 0.4);
   }
 }
 </style>
