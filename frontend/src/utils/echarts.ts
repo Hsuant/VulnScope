@@ -1,7 +1,7 @@
 // ECharts 按需注册：仅引入 Dashboard 所用图表与组件，控制打包体积。
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, BarChart, LineChart } from 'echarts/charts'
+import { PieChart, BarChart, LineChart, TreemapChart } from 'echarts/charts'
 import { TooltipComponent, GridComponent, TitleComponent, AxisPointerComponent } from 'echarts/components'
 import { LegacyGridContainLabel } from 'echarts/features'
 
@@ -10,6 +10,7 @@ use([
   PieChart,
   BarChart,
   LineChart,
+  TreemapChart,
   TooltipComponent,
   GridComponent,
   TitleComponent,

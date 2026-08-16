@@ -23,12 +23,6 @@ export interface TrendPoint {
   new_vulns: number
 }
 
-export interface TopTag {
-  tag_name: string
-  namespace: string
-  count: number
-}
-
 export interface TopAuthor {
   author: string
   count: number
@@ -45,15 +39,20 @@ export interface DashboardData {
   stats: DashboardStats
   severity_distribution: DistributionItem[]
   status_distribution: DistributionItem[]
-  source_distribution: DistributionItem[]
-  format_distribution: DistributionItem[]
   creation_timeline: TimelinePoint[]
-  top_tags: TopTag[]
   top_authors: TopAuthor[]
   recent_activities: RecentActivity[]
+  asset_search_distribution: DistributionItem[]
+  vuln_coverage_treemap: VulnTreemapItem[]
 }
 
-export interface TagCloud {
-  namespace: string
-  tags: TopTag[]
+export interface VulnTreemapItem {
+  cve_id: string
+  severity: string
+  poc_count: number
+}
+
+export interface TagDistItem {
+  tag_name: string
+  count: number
 }

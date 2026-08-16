@@ -1,5 +1,5 @@
 import service from './request'
-import type { DashboardData, DistributionItem, TimelinePoint, TrendPoint, TopTag, TopAuthor, RecentActivity, TagCloud } from '@/types/dashboard'
+import type { DashboardData, DistributionItem, TimelinePoint, TrendPoint, TopAuthor, RecentActivity, VulnTreemapItem, TagDistItem } from '@/types/dashboard'
 
 export function getFullDashboard(): Promise<DashboardData> {
   return service.get('/dashboard/full')
@@ -17,20 +17,8 @@ export function getStatusDistribution(): Promise<DistributionItem[]> {
   return service.get('/dashboard/status')
 }
 
-export function getSourceDistribution(): Promise<DistributionItem[]> {
-  return service.get('/dashboard/source')
-}
-
-export function getFormatDistribution(): Promise<DistributionItem[]> {
-  return service.get('/dashboard/format')
-}
-
 export function getCreationTimeline(days = 30): Promise<TimelinePoint[]> {
   return service.get('/dashboard/timeline', { params: { days } })
-}
-
-export function getTopTags(limit = 10): Promise<TopTag[]> {
-  return service.get('/dashboard/top-tags', { params: { limit } })
 }
 
 export function getTopAuthors(limit = 10): Promise<TopAuthor[]> {
@@ -45,6 +33,14 @@ export function getTrend(days = 30): Promise<TrendPoint[]> {
   return service.get('/dashboard/trend', { params: { days } })
 }
 
-export function getTagCloud(): Promise<TagCloud[]> {
-  return service.get('/dashboard/tag-cloud')
+export function getTagNamespaceDistribution(namespace: string): Promise<TagDistItem[]> {
+  return service.get('/dashboard/tag-distribution', { params: { namespace } })
+}
+
+export function getAssetSearchDistribution(): Promise<DistributionItem[]> {
+  return service.get('/dashboard/asset-search-distribution')
+}
+
+export function getVulnCoverageTreemap(limit = 20): Promise<VulnTreemapItem[]> {
+  return service.get('/dashboard/vuln-treemap', { params: { limit } })
 }

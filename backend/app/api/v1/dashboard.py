@@ -29,18 +29,6 @@ def get_status_distribution(request: Request, db: DbSession, user: CurrentUser) 
     return ok(dashboard_service.get_status_distribution(db), request)
 
 
-@router.get("/source")
-def get_source_distribution(request: Request, db: DbSession, user: CurrentUser) -> dict:
-    """来源分布（饼图）：manual / imported / ai / crawler。"""
-    return ok(dashboard_service.get_source_distribution(db), request)
-
-
-@router.get("/format")
-def get_format_distribution(request: Request, db: DbSession, user: CurrentUser) -> dict:
-    """格式分布（饼图）：nuclei-yaml / json / pocsuite3 / raw-script。"""
-    return ok(dashboard_service.get_format_distribution(db), request)
-
-
 @router.get("/timeline")
 def get_creation_timeline(
     request: Request,
@@ -50,17 +38,6 @@ def get_creation_timeline(
 ) -> dict:
     """POC 创建趋势（折线图）：按天聚合最近 N 天数据，缺失日期补 0。"""
     return ok(dashboard_service.get_creation_timeline(db, days), request)
-
-
-@router.get("/top-tags")
-def get_top_tags(
-    request: Request,
-    db: DbSession,
-    user: CurrentUser,
-    limit: int = Query(default=10, ge=1, le=50, description="返回条数"),
-) -> dict:
-    """热门标签排名（柱状图/标签云）：按 POC 关联数降序排列。"""
-    return ok(dashboard_service.get_top_tags(db, limit), request)
 
 
 @router.get("/top-authors")
@@ -96,10 +73,32 @@ def get_vulnerability_trend(
     return ok(dashboard_service.get_vulnerability_trend(db, days), request)
 
 
-@router.get("/tag-cloud")
-def get_tag_cloud(request: Request, db: DbSession, user: CurrentUser) -> dict:
-    """标签云（按命名空间分组）：展示 attack / auth / impact 等维度的标签分布。"""
-    return ok(dashboard_service.get_tag_cloud(db), request)
+@router.get("/tag-distribution")
+def get_tag_namespace_distribution(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    namespace: str = Query(..., description="标签命名空间"),
+) -> dict:
+    """标签命名空间分布（饼图）：选定命名空间下各子标签的 POC 关联数。"""
+    return ok(dashboard_service.get_tag_namespace_distribution(db, namespace), request)
+
+
+@router.get("/asset-search-distribution")
+def get_asset_search_distribution(request: Request, db: DbSession, user: CurrentUser) -> dict:
+    """资产搜集命令分布（饼图）：统计 POC 中 FOFA / Shodan 语法的覆盖情况。"""
+    return ok(dashboard_service.get_asset_search_distribution(db), request)
+
+
+@router.get("/vuln-treemap")
+def get_vuln_coverage_treemap(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    limit: int = Query(default=20, ge=5, le=50, description="返回条数"),
+) -> dict:
+    """CVE 影响范围矩形树图：展示 CVE 编号及其关联 POC 数。"""
+    return ok(dashboard_service.get_vuln_coverage_treemap(db, limit), request)
 
 
 @router.get("/full")

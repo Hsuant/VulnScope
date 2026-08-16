@@ -30,32 +30,10 @@ class StatusDistribution(BaseModel):
     count: int
 
 
-class SourceDistribution(BaseModel):
-    """来源分布。"""
-
-    source: str
-    count: int
-
-
-class FormatDistribution(BaseModel):
-    """格式分布。"""
-
-    format: str
-    count: int
-
-
 class TimelinePoint(BaseModel):
     """时序数据点。"""
 
     date: str  # YYYY-MM-DD
-    count: int
-
-
-class TopTag(BaseModel):
-    """热门标签。"""
-
-    tag_name: str
-    namespace: str
     count: int
 
 
@@ -75,20 +53,6 @@ class RecentActivityItem(BaseModel):
     timestamp: str
 
 
-class DashboardResponse(BaseModel):
-    """Dashboard 完整响应。"""
-
-    stats: DashboardStats
-    severity_distribution: list[SeverityDistribution]
-    status_distribution: list[StatusDistribution]
-    source_distribution: list[SourceDistribution]
-    format_distribution: list[FormatDistribution]
-    creation_timeline: list[TimelinePoint]
-    top_tags: list[TopTag]
-    top_authors: list[TopAuthor]
-    recent_activities: list[RecentActivityItem]
-
-
 class VulnerabilityTrend(BaseModel):
     """漏洞趋势。"""
 
@@ -97,14 +61,36 @@ class VulnerabilityTrend(BaseModel):
     new_vulns: int
 
 
-class TagCloud(BaseModel):
-    """标签云。"""
+class TagDistItem(BaseModel):
+    """标签命名空间分布项。"""
 
-    namespaces: list[TagNamespace]
+    tag_name: str
+    count: int
 
 
-class TagNamespace(BaseModel):
-    """标签命名空间。"""
+class AssetSearchItem(BaseModel):
+    """资产搜集命令分布项。"""
 
-    namespace: str
-    tags: list[TopTag]
+    key: str  # 语法名称，如 fofa / shodan（自动从 extra_meta 发现）
+    count: int
+
+
+class VulnTreemapItem(BaseModel):
+    """CVE 影响范围矩形树图项。"""
+
+    cve_id: str
+    severity: str
+    poc_count: int
+
+
+class DashboardResponse(BaseModel):
+    """Dashboard 完整响应。"""
+
+    stats: DashboardStats
+    severity_distribution: list[SeverityDistribution]
+    status_distribution: list[StatusDistribution]
+    creation_timeline: list[TimelinePoint]
+    top_authors: list[TopAuthor]
+    recent_activities: list[RecentActivityItem]
+    asset_search_distribution: list[AssetSearchItem]
+    vuln_coverage_treemap: list[VulnTreemapItem]

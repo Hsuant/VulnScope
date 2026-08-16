@@ -1,4 +1,4 @@
-"""Dashboard 统计服务：聚合 POC 数据生成可视化统计指标。"""
+"""Dashboard 统计服务：聚合 POC / CVE 数据生成可视化统计指标。"""
 
 from __future__ import annotations
 
@@ -10,21 +10,20 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import cache
 from app.core.config import settings
-from app.models.poc import AuditLog, Poc, PocTag, Tag, Vuln
+from app.models.poc import AuditLog, Poc, PocTag, PocVuln, Tag, Vuln
 
 # ── 缓存键常量 ──────────────────────────────────────────────────────────
 
 _CACHE_KEY_STATS = "dashboard:stats"
 _CACHE_KEY_SEVERITY = "dashboard:severity"
 _CACHE_KEY_STATUS = "dashboard:status"
-_CACHE_KEY_SOURCE = "dashboard:source"
-_CACHE_KEY_FORMAT = "dashboard:format"
 _CACHE_KEY_TIMELINE = "dashboard:timeline"
-_CACHE_KEY_TAGS = "dashboard:tags"
 _CACHE_KEY_AUTHORS = "dashboard:authors"
 _CACHE_KEY_ACTIVITY = "dashboard:activity"
 _CACHE_KEY_TREND = "dashboard:trend"
-_CACHE_KEY_TAG_CLOUD = "dashboard:tag_cloud"
+_CACHE_KEY_TAG_DIST = "dashboard:tag_dist"
+_CACHE_KEY_ASSET_SEARCH = "dashboard:asset_search"
+_CACHE_KEY_VULN_TREE = "dashboard:vuln_tree"
 
 
 # ── 统计聚合函数 ────────────────────────────────────────────────────────
@@ -84,26 +83,6 @@ def get_status_distribution(db: Session) -> list[dict]:
     return result
 
 
-def get_source_distribution(db: Session) -> list[dict]:
-    """来源分布。"""
-    cached = cache.get(_CACHE_KEY_SOURCE)
-    if cached:
-        return cached
-    result = _safe_count(db, Poc.source)
-    cache.set(_CACHE_KEY_SOURCE, result, ttl=settings.DASHBOARD_CACHE_TTL)
-    return result
-
-
-def get_format_distribution(db: Session) -> list[dict]:
-    """格式分布。"""
-    cached = cache.get(_CACHE_KEY_FORMAT)
-    if cached:
-        return cached
-    result = _safe_count(db, Poc.format)
-    cache.set(_CACHE_KEY_FORMAT, result, ttl=settings.DASHBOARD_CACHE_TTL)
-    return result
-
-
 def get_creation_timeline(db: Session, days: int = 30) -> list[dict]:
     """POC 创建趋势（最近 N 天，按天聚合）。"""
     cache_key = f"{_CACHE_KEY_TIMELINE}:{days}"
@@ -129,25 +108,6 @@ def get_creation_timeline(db: Session, days: int = 30) -> list[dict]:
         d = (since + dt.timedelta(days=i)).strftime("%Y-%m-%d")
         result.append({"date": d, "count": date_counts.get(d, 0)})
 
-    cache.set(cache_key, result, ttl=settings.DASHBOARD_CACHE_TTL)
-    return result
-
-
-def get_top_tags(db: Session, limit: int = 10) -> list[dict]:
-    """热门标签（按 POC 关联数排序）。"""
-    cache_key = f"{_CACHE_KEY_TAGS}:{limit}"
-    cached = cache.get(cache_key)
-    if cached:
-        return cached
-
-    rows = db.execute(
-        select(Tag.name, Tag.namespace, func.count().label("count"))
-        .join(PocTag, Tag.id == PocTag.tag_id)
-        .group_by(Tag.id)
-        .order_by(func.count().desc())
-        .limit(limit)
-    ).all()
-    result = [{"tag_name": r[0], "namespace": r[1], "count": r[2]} for r in rows]
     cache.set(cache_key, result, ttl=settings.DASHBOARD_CACHE_TTL)
     return result
 
@@ -240,25 +200,61 @@ def get_vulnerability_trend(db: Session, days: int = 30) -> list[dict]:
     return result
 
 
-def get_tag_cloud(db: Session) -> list[dict]:
-    """标签云（按命名空间分组）。"""
-    cached = cache.get(_CACHE_KEY_TAG_CLOUD)
+def get_tag_namespace_distribution(db: Session, namespace: str) -> list[dict]:
+    """标签命名空间分布：获取指定命名空间下各标签的 POC 关联数。"""
+    cache_key = f"{_CACHE_KEY_TAG_DIST}:{namespace}"
+    cached = cache.get(cache_key)
     if cached:
         return cached
 
     rows = db.execute(
-        select(Tag.namespace, Tag.name, func.count().label("count"))
+        select(Tag.name, func.count().label("count"))
         .join(PocTag, Tag.id == PocTag.tag_id)
+        .where(Tag.namespace == namespace)
         .group_by(Tag.id)
-        .order_by(Tag.namespace, func.count().desc())
+        .order_by(func.count().desc())
     ).all()
+    result = [{"tag_name": r[0], "count": r[1]} for r in rows]
+    cache.set(cache_key, result, ttl=settings.DASHBOARD_CACHE_TTL)
+    return result
 
-    ns_map: dict[str, list[dict]] = {}
-    for r in rows:
-        ns_map.setdefault(r[0], []).append({"tag_name": r[1], "namespace": r[0], "count": r[2]})
 
-    result = [{"namespace": ns, "tags": tags} for ns, tags in ns_map.items()]
-    cache.set(_CACHE_KEY_TAG_CLOUD, result, ttl=settings.DASHBOARD_CACHE_TTL)
+def get_asset_search_distribution(db: Session) -> list[dict]:
+    """资产搜集命令分布：统计每种资产搜集语法的 POC 覆盖数（非互斥，可扩展）。"""
+    cached = cache.get(_CACHE_KEY_ASSET_SEARCH)
+    if cached:
+        return cached
+
+    rows = db.execute(select(Poc.extra_meta)).all()
+    counts: dict[str, int] = {}
+    for (meta,) in rows:
+        meta_dict = meta or {}
+        for key, val in meta_dict.items():
+            if key.endswith("_syntax") and val:
+                name = key.replace("_syntax", "")
+                counts[name] = counts.get(name, 0) + 1
+
+    result = [{"key": k, "count": v} for k, v in sorted(counts.items(), key=lambda x: -x[1])]
+    cache.set(_CACHE_KEY_ASSET_SEARCH, result, ttl=settings.DASHBOARD_CACHE_TTL)
+    return result
+
+
+def get_vuln_coverage_treemap(db: Session, limit: int = 20) -> list[dict]:
+    """CVE 影响范围矩形树图：展示 CVE 编号及其关联 POC 数。"""
+    cache_key = f"{_CACHE_KEY_VULN_TREE}:{limit}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    rows = db.execute(
+        select(Vuln.cve_id, Vuln.severity, func.count(PocVuln.poc_id).label("poc_count"))
+        .join(PocVuln, Vuln.id == PocVuln.vuln_id)
+        .group_by(Vuln.id)
+        .order_by(func.count(PocVuln.poc_id).desc())
+        .limit(limit)
+    ).all()
+    result = [{"cve_id": r[0], "severity": r[1] or "unknown", "poc_count": r[2]} for r in rows]
+    cache.set(cache_key, result, ttl=settings.DASHBOARD_CACHE_TTL)
     return result
 
 
@@ -268,12 +264,11 @@ def get_full_dashboard(db: Session) -> dict:
         "stats": get_stats(db),
         "severity_distribution": get_severity_distribution(db),
         "status_distribution": get_status_distribution(db),
-        "source_distribution": get_source_distribution(db),
-        "format_distribution": get_format_distribution(db),
         "creation_timeline": get_creation_timeline(db),
-        "top_tags": get_top_tags(db),
         "top_authors": get_top_authors(db),
         "recent_activities": get_recent_activities(db),
+        "asset_search_distribution": get_asset_search_distribution(db),
+        "vuln_coverage_treemap": get_vuln_coverage_treemap(db),
     }
 
 
@@ -283,13 +278,12 @@ def invalidate_cache() -> None:
         _CACHE_KEY_STATS,
         _CACHE_KEY_SEVERITY,
         _CACHE_KEY_STATUS,
-        _CACHE_KEY_SOURCE,
-        _CACHE_KEY_FORMAT,
         _CACHE_KEY_TIMELINE,
-        _CACHE_KEY_TAGS,
         _CACHE_KEY_AUTHORS,
         _CACHE_KEY_ACTIVITY,
         _CACHE_KEY_TREND,
-        _CACHE_KEY_TAG_CLOUD,
+        _CACHE_KEY_TAG_DIST,
+        _CACHE_KEY_ASSET_SEARCH,
+        _CACHE_KEY_VULN_TREE,
     ]:
         cache.delete(key)

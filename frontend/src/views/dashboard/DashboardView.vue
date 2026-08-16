@@ -48,7 +48,7 @@
         </div>
       </section>
 
-      <!-- ── 严重级别 / 来源 / 格式 ─────────────────────────────── -->
+      <!-- ── 严重级别 / 可选命名空间标签分布 / 资产搜集命令分布 ── -->
       <section class="grid">
         <div class="panel span-4">
           <div class="panel-head"><h3 class="panel-title">严重级别分布</h3></div>
@@ -56,11 +56,30 @@
         </div>
 
         <div class="panel span-4">
-          <div class="panel-head"><h3 class="panel-title">来源分布</h3></div>
+          <div class="panel-head">
+            <h3 class="panel-title">可选命名空间标签分布</h3>
+          </div>
+          <div class="ns-selector-wrap">
+            <el-select
+              v-model="selectedNamespace"
+              :loading="nsLoading"
+              size="small"
+              placeholder="选择命名空间"
+              class="ns-selector"
+              @change="loadTagDistribution"
+            >
+              <el-option
+                v-for="ns in namespaces"
+                :key="ns"
+                :label="ns"
+                :value="ns"
+              />
+            </el-select>
+          </div>
           <div class="donut-wrap">
-            <DonutChart :items="sourceItems" variant="pie" />
+            <DonutChart :items="tagDistItems" variant="pie" />
             <div class="legend-col">
-              <div v-for="s in sourceItems" :key="s.name" class="legend-row">
+              <div v-for="s in tagDistItems" :key="s.name" class="legend-row">
                 <span class="legend-dot" :style="{ background: cssVar(s.colorKey) }" />
                 <span class="legend-text">{{ s.name }}</span>
                 <span class="legend-val">{{ s.value }}</span>
@@ -70,19 +89,19 @@
         </div>
 
         <div class="panel span-4">
-          <div class="panel-head"><h3 class="panel-title">格式分布</h3></div>
-          <BarChart :items="formatItems" />
+          <div class="panel-head"><h3 class="panel-title">资产搜集命令分布</h3></div>
+          <BarChart :items="assetSearchItems" />
         </div>
       </section>
 
-      <!-- ── 热门标签 / 高产作者 / 最近活动 ─────────────────────── -->
+      <!-- ── CVE 影响范围矩形树图 / 高产作者 / 最近活动 ──────────── -->
       <section class="grid">
-        <div class="panel span-4">
+        <div class="panel span-8">
           <div class="panel-head">
-            <h3 class="panel-title">热门标签</h3>
-            <span class="panel-meta">共 {{ stats.total_tags }} 个</span>
+            <h3 class="panel-title">CVE 影响范围</h3>
+            <span class="panel-meta">矩形树图 · 方块越大关联 POC 越多</span>
           </div>
-          <BarChart :items="tagItems" horizontal />
+          <TreemapChart :items="treemapItems" />
         </div>
 
         <div class="panel span-4">
@@ -102,8 +121,11 @@
           </div>
           <div v-else class="chart-empty">暂无作者数据</div>
         </div>
+      </section>
 
-        <div class="panel span-4">
+      <!-- ── 最近活动 ─────────────────────────────────────────────── -->
+      <section class="grid">
+        <div class="panel span-12">
           <div class="panel-head"><h3 class="panel-title">最近活动</h3></div>
           <div v-if="activityData.length" class="activity-timeline">
             <div v-for="item in activityData" :key="item.timestamp" class="activity-node">
@@ -124,24 +146,59 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getFullDashboard } from '@/api/dashboard'
-import { SEVERITY_MAP, STATUS_MAP, SOURCE_MAP, FORMAT_MAP, ACTION_MAP } from '@/utils/constants'
+import { getFullDashboard, getTagNamespaceDistribution } from '@/api/dashboard'
+import { listNamespaces } from '@/api/tag'
+import { SEVERITY_MAP, STATUS_MAP, ACTION_MAP } from '@/utils/constants'
 import { formatRelativeTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import TrendChart from '@/components/dashboard/TrendChart.vue'
 import DonutChart, { type DonutItem } from '@/components/dashboard/DonutChart.vue'
 import BarChart, { type BarItem } from '@/components/dashboard/BarChart.vue'
+import TreemapChart from '@/components/dashboard/TreemapChart.vue'
 import { cssVar, type ChartColorKey } from '@/composables/useChartTheme'
 import type { DashboardData } from '@/types/dashboard'
 
 const loading = ref(true)
 const data = ref<DashboardData | null>(null)
 
+// ── 命名空间选择 ──────────────────────────────────────────────────
+const namespaces = ref<string[]>([])
+const nsLoading = ref(false)
+const selectedNamespace = ref<string>('')
+const tagDistRaw = ref<{ tag_name: string; count: number }[]>([])
+
+async function loadNamespaces() {
+  nsLoading.value = true
+  try {
+    namespaces.value = await listNamespaces()
+    if (namespaces.value.length && !selectedNamespace.value) {
+      selectedNamespace.value = namespaces.value[0]
+      await loadTagDistribution()
+    }
+  } catch {
+    // handled by interceptor
+  } finally {
+    nsLoading.value = false
+  }
+}
+
+async function loadTagDistribution() {
+  if (!selectedNamespace.value) return
+  try {
+    tagDistRaw.value = await getTagNamespaceDistribution(selectedNamespace.value)
+  } catch {
+    tagDistRaw.value = []
+  }
+}
+
 // ── 色彩键映射：数据键 → CSS 变量名（图例用 var()，ECharts 用解析色） ─
 const SEVERITY_KEY: Record<string, ChartColorKey> = { critical: 'critical', high: 'high', medium: 'medium', low: 'low', info: 'info' }
 const STATUS_KEY: Record<string, ChartColorKey> = { active: 'active', draft: 'info', disabled: 'disabled', archived: 'archived' }
-const SOURCE_KEY: Record<string, ChartColorKey> = { manual: 'accent', imported: 'active', ai: 'archived', crawler: 'medium' }
-const FORMAT_KEY: Record<string, ChartColorKey> = { 'nuclei-yaml': 'accent', json: 'active', pocsuite3: 'archived', 'raw-script': 'medium' }
+const TAG_NS_COLORS: ChartColorKey[] = ['accent', 'active', 'archived', 'medium', 'low', 'high', 'critical', 'info']
+
+const ASSET_SEARCH_LABEL: Record<string, string> = {
+  fofa: 'FOFA', shodan: 'Shodan',
+}
 const ACTION_KEY: Record<string, ChartColorKey> = {
   'poc.created': 'active',
   'poc.updated': 'accent',
@@ -197,29 +254,28 @@ const statusItems = computed<DonutItem[]>(() => {
     .map(d => ({ name: STATUS_MAP[d.key] || d.key, value: d.count, colorKey: STATUS_KEY[d.key] || 'accent' }))
 })
 
-const sourceItems = computed<DonutItem[]>(() => {
-  if (!data.value) return []
-  return data.value.source_distribution.map(d => ({
-    name: SOURCE_MAP[d.key] || d.key,
+const tagDistItems = computed<DonutItem[]>(() =>
+  tagDistRaw.value.map((d, i) => ({
+    name: d.tag_name,
     value: d.count,
-    colorKey: SOURCE_KEY[d.key] || 'accent',
+    colorKey: TAG_NS_COLORS[i % TAG_NS_COLORS.length],
+  })),
+)
+
+const assetSearchItems = computed<BarItem[]>(() => {
+  if (!data.value) return []
+  return data.value!.asset_search_distribution.map(d => ({
+    name: ASSET_SEARCH_LABEL[d.key] || d.key.toUpperCase(),
+    value: d.count,
+    colorKey: 'accent',
   }))
 })
 
-const formatItems = computed<BarItem[]>(() => {
-  if (!data.value) return []
-  // 保证稳定的展示顺序
-  const order = ['nuclei-yaml', 'pocsuite3', 'json', 'raw-script']
-  return order
-    .map(k => data.value!.format_distribution.find(d => d.key === k))
-    .filter((d): d is NonNullable<typeof d> => !!d)
-    .map(d => ({ name: FORMAT_MAP[d.key] || d.key, value: d.count, colorKey: FORMAT_KEY[d.key] || 'accent' }))
+const treemapItems = computed(() => {
+  const items = data.value?.vuln_coverage_treemap || []
+  return items.map(d => ({ name: d.cve_id, value: d.poc_count, severity: d.severity }))
 })
 
-const tagData = computed(() => data.value?.top_tags || [])
-const tagItems = computed<BarItem[]>(() =>
-  tagData.value.map(t => ({ name: t.tag_name, value: t.count, colorKey: 'accent' })),
-)
 const authorData = computed(() => data.value?.top_authors || [])
 const activityData = computed(() => data.value?.recent_activities || [])
 
@@ -238,6 +294,7 @@ function formatRelative(date: string): string {
 onMounted(async () => {
   try {
     data.value = await getFullDashboard()
+    await loadNamespaces()
   } catch {
     // 错误已由拦截器处理
   } finally {
@@ -358,6 +415,7 @@ onMounted(async () => {
 
 .span-4 { grid-column: span 4; }
 .span-8 { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
 
 .panel--trend {
   background:
@@ -452,6 +510,15 @@ onMounted(async () => {
   color: $text-secondary;
   font-variant-numeric: tabular-nums;
   font-size: $font-caption;
+}
+
+// ── 命名空间选择器 ──────────────────────────────────────────────
+.ns-selector-wrap {
+  margin-bottom: $spacing-sm;
+}
+
+.ns-selector {
+  width: 100%;
 }
 
 // ── 排名列表 ───────────────────────────────────────────────────
@@ -603,11 +670,12 @@ onMounted(async () => {
   .kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .span-4 { grid-column: span 6; }
   .span-8 { grid-column: span 12; }
+  .span-12 { grid-column: span 12; }
 }
 
 @media (max-width: 720px) {
   .kpi-strip { grid-template-columns: 1fr; }
-  .span-4, .span-8 { grid-column: span 12; }
+  .span-4, .span-8, .span-12 { grid-column: span 12; }
   .donut-wrap { flex-direction: column; }
 }
 </style>
