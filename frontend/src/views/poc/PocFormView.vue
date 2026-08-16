@@ -296,7 +296,7 @@ import type { TagItem } from '@/types/tag'
 import type { AffectedVersion, Reference } from '@/types/poc'
 import {
   createEmptyState, generateContent, parseContent, canBuild as canBuildFormat,
-  readBuilderMeta, type BuilderState,
+  readBuilderMeta, migrateBuilderState, type BuilderState,
 } from '@/utils/pocBuilder'
 
 const route = useRoute()
@@ -452,11 +452,12 @@ async function loadData() {
     form.extra_meta = poc.extra_meta || {}
 
     // 回填构建器状态：优先从 extra_meta.builder 精确恢复，否则从 content 解析
+    // migrateBuilderState 兼容旧版（url/body/readOnce/inputs 等）字段迁移
     const saved = readBuilderMeta(form.extra_meta)
     if (saved) {
-      Object.assign(builderState, saved)
+      Object.assign(builderState, migrateBuilderState(saved))
     } else if (canBuild.value && form.content) {
-      Object.assign(builderState, parseContent(form.content, form.format))
+      Object.assign(builderState, migrateBuilderState(parseContent(form.content, form.format)))
     }
     editMode.value = canBuild.value ? 'builder' : 'source'
   } catch {
@@ -556,18 +557,26 @@ async function handleSave() {
 
   // 完整性校验：构建模式下需至少一条匹配器且非空
   if (canBuild.value && editMode.value === 'builder') {
-    const hasMatcher = builderState.matchers.some(
-      (m) => (m.type === 'status' ? m.status.length > 0 : m.words.some((w) => w.trim() !== '')),
-    )
+    const hasMatcher = builderState.matchers.some((m) => {
+      if (m.type === 'status') return m.status.length > 0
+      if (m.type === 'size') return m.lt !== null || m.gt !== null
+      if (m.type === 'binary') return m.binary.some((b) => b.trim() !== '')
+      if (m.type === 'condition') return m.conditionExpression.trim() !== ''
+      return m.words.some((w) => w.trim() !== '')
+    })
     if (!hasMatcher) {
       ElMessage.warning('请至少添加一条有效的匹配规则（关键词/状态码/DSL）')
       return
     }
     const protoOk =
-      (builderState.protocol === 'http' && builderState.http.paths.some((p) => p.trim() !== '')) ||
+      (builderState.protocol === 'http' && (
+        builderState.http.mode === 'raw'
+          ? builderState.http.raw.some((r) => r.trim() !== '')
+          : builderState.http.paths.some((p) => p.trim() !== '')
+      )) ||
       (builderState.protocol === 'tcp' && (builderState.tcp.inputs.some((i) => i.trim() !== '') || builderState.tcp.port.trim() !== '')) ||
-      (builderState.protocol === 'network' && (builderState.network.inputs.some((i) => i.trim() !== '') || builderState.network.port.trim() !== '')) ||
-      (builderState.protocol === 'websocket' && builderState.websocket.url.trim() !== '') ||
+      (builderState.protocol === 'network' && (builderState.network.host.some((h) => h.trim() !== '') || builderState.network.port.trim() !== '')) ||
+      (builderState.protocol === 'websocket' && builderState.websocket.address.trim() !== '') ||
       (builderState.protocol === 'dns' && builderState.dns.domains.some((d) => d.trim() !== ''))
     if (!protoOk) {
       ElMessage.warning('请填写当前协议下必要的请求字段')
