@@ -56,10 +56,6 @@
               <span class="meta-value">{{ FORMAT_MAP[poc.format] || poc.format }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">语言</span>
-              <span class="meta-value">{{ poc.language || '-' }}</span>
-            </div>
-            <div class="meta-item">
               <span class="meta-label">作者</span>
               <span class="meta-value">{{ poc.author || '-' }}</span>
             </div>
@@ -104,15 +100,6 @@
               <span class="meta-value">
                 <template v-if="poc.tags?.length">
                   <TagChip v-for="tag in poc.tags" :key="tag.id" :tag="tag" class="detail-tag" />
-                </template>
-                <span v-else>-</span>
-              </span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">分类</span>
-              <span class="meta-value">
-                <template v-if="poc.categories?.length">
-                  <el-tag v-for="cat in poc.categories" :key="cat.id" size="small" class="cate-tag">{{ cat.slug }}</el-tag>
                 </template>
                 <span v-else>-</span>
               </span>
@@ -378,7 +365,7 @@ onMounted(loadData)
   margin: 0;
 }
 
-.cve-tag, .cate-tag {
+.cve-tag {
   margin-right: 4px;
   margin-bottom: 4px;
 }
