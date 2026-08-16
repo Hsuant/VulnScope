@@ -114,7 +114,8 @@ class MarkdownParser(PocParser):
         if not m:
             return "", raw
         front = m.group(1)
-        body = raw[m.end():]
+        end = m.end()
+        body = raw[end:]
         return front, body
 
     def _build(self, meta: dict[str, Any], body: str) -> NormalizedPoc:
