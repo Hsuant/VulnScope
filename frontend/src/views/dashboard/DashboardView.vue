@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-view">
-    <PageHeader title="工作台" description="POC 资产全局概览" />
+    <PageHeader title="工作台" />
 
     <div v-loading="loading" class="dashboard-content">
       <!-- ── 关键指标 KPI 条 ─────────────────────────────────────── -->
