@@ -293,10 +293,7 @@ http:
         db.add(tag)
         db.commit()
 
-        # 导入带 "rce"（小写）标签的 POC
-        from app.services.import_service import import_pocs
-
-        # 使用 db 直接调用，从 analyze 导入
+        # 使用 db 直接调用 _resolve_tag 测试标签匹配
         from app.services.import_service import _resolve_tag
 
         resolved = _resolve_tag(db, "rce")
