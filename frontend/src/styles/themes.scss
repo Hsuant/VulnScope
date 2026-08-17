@@ -32,6 +32,22 @@
   --vs-low: #3e7ec4;
   --vs-info: #6a6a72;
 
+  // 严重级别徽章：深色底用白字 + 同色低透明度底，色相靠底色区分
+  --vs-critical-text: #fff;
+  --vs-critical-bg: rgba(var(--vs-critical-rgb), 0.22);
+  --vs-critical-border: rgba(var(--vs-critical-rgb), 0.45);
+  --vs-high-text: #fff;
+  --vs-high-bg: rgba(var(--vs-high-rgb), 0.22);
+  --vs-high-border: rgba(var(--vs-high-rgb), 0.45);
+  --vs-medium-text: #fff;
+  --vs-medium-bg: rgba(var(--vs-medium-rgb), 0.22);
+  --vs-medium-border: rgba(var(--vs-medium-rgb), 0.45);
+  --vs-low-text: #fff;
+  --vs-low-bg: rgba(var(--vs-low-rgb), 0.22);
+  --vs-low-border: rgba(var(--vs-low-rgb), 0.45);
+  --vs-info-bg: rgba(var(--vs-info-rgb), 0.22);
+  --vs-info-border: rgba(var(--vs-info-rgb), 0.45);
+
   // 状态色
   --vs-active: #3ea85e;
   --vs-disabled: #c43e3e;
@@ -112,6 +128,23 @@
   --vs-medium: #b09630;
   --vs-low: #306eb0;
   --vs-info: #5a5a62;
+
+  // 严重级别徽章：浅色底用同色系实色浅底 + 加深同色文字，
+  // 各级别色相明确可辨（红 / 橙 / 琥珀 / 蓝），避免低透明度导致的色相趋同
+  --vs-critical-text: #8a2424;
+  --vs-critical-bg: #f6d6d6;
+  --vs-critical-border: #e3a0a0;
+  --vs-high-text: #8a4818;
+  --vs-high-bg: #f6dfc8;
+  --vs-high-border: #e3b58a;
+  --vs-medium-text: #73560e;
+  --vs-medium-bg: #f6ecc4;
+  --vs-medium-border: #e3cd88;
+  --vs-low-text: #1a4880;
+  --vs-low-bg: #d6e2f4;
+  --vs-low-border: #9ab5d8;
+  --vs-info-bg: #e8eaec;
+  --vs-info-border: #c8ccd0;
 
   // 状态色
   --vs-active: #2e9850;

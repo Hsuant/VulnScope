@@ -27,29 +27,29 @@ const label = computed(() => SEVERITY_MAP[props.severity] || props.severity)
   white-space: nowrap;
 
   &.critical {
-    color: #fff;
-    background: rgba(var(--vs-critical-rgb), 0.2);
-    border: 1px solid rgba(var(--vs-critical-rgb), 0.4);
+    color: var(--vs-critical-text);
+    background: var(--vs-critical-bg);
+    border: 1px solid var(--vs-critical-border);
   }
   &.high {
-    color: #fff;
-    background: rgba(var(--vs-high-rgb), 0.2);
-    border: 1px solid rgba(var(--vs-high-rgb), 0.4);
+    color: var(--vs-high-text);
+    background: var(--vs-high-bg);
+    border: 1px solid var(--vs-high-border);
   }
   &.medium {
-    color: #fff;
-    background: rgba(var(--vs-medium-rgb), 0.2);
-    border: 1px solid rgba(var(--vs-medium-rgb), 0.4);
+    color: var(--vs-medium-text);
+    background: var(--vs-medium-bg);
+    border: 1px solid var(--vs-medium-border);
   }
   &.low {
-    color: #fff;
-    background: rgba(var(--vs-low-rgb), 0.2);
-    border: 1px solid rgba(var(--vs-low-rgb), 0.4);
+    color: var(--vs-low-text);
+    background: var(--vs-low-bg);
+    border: 1px solid var(--vs-low-border);
   }
   &.info {
-    color: $text-secondary;
-    background: rgba(var(--vs-info-rgb), 0.2);
-    border: 1px solid rgba(var(--vs-info-rgb), 0.4);
+    color: var(--vs-text-secondary);
+    background: var(--vs-info-bg);
+    border: 1px solid var(--vs-info-border);
   }
 }
 </style>
