@@ -93,6 +93,206 @@ class TestVulnDelete:
         assert logs[0].detail == {"cve_id": "CVE-2024-1004", "severity": None}
 
 
+class TestVulnCreate:
+    """CVE 创建接口测试。"""
+
+    def test_create_vuln_success(self, client: TestClient, auth_header: dict) -> None:
+        """创建 CVE 成功，返回完整数据。"""
+        payload = {
+            "cve_id": "CVE-2024-5001",
+            "vendor": "apache",
+            "title": "Test RCE",
+            "cvss": 9.8,
+            "severity": "critical",
+            "cvss_metrics": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "product": [{"vendor": "apache", "product": "log4j"}],
+            "remediation": {"mitigation": "upgrade", "workaround": "set flag"},
+            "reference": [{"url": "https://example.com", "label": "adv"}],
+        }
+        resp = client.post("/api/v1/vulns", json=payload, headers=auth_header)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["cve_id"] == "CVE-2024-5001"
+        assert data["vendor"] == "apache"
+        assert data["cvss"] == 9.8
+        assert data["poc_count"] == 0
+
+    def test_create_vuln_duplicate_conflict(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """cve_id 重复返回 409。"""
+        _create_vuln(db, "CVE-2024-5002")
+        resp = client.post("/api/v1/vulns", json={"cve_id": "CVE-2024-5002"}, headers=auth_header)
+        assert resp.status_code == 409
+
+    def test_create_vuln_invalid_cve_id(self, client: TestClient, auth_header: dict) -> None:
+        """非法 cve_id 格式返回 422。"""
+        resp = client.post("/api/v1/vulns", json={"cve_id": "not-a-cve"}, headers=auth_header)
+        assert resp.status_code == 422
+
+    def test_create_vuln_no_auth(self, client: TestClient) -> None:
+        """未认证创建返回 401。"""
+        resp = client.post("/api/v1/vulns", json={"cve_id": "CVE-2024-5003"})
+        assert resp.status_code == 401
+
+    def test_create_vuln_viewer_forbidden(self, client: TestClient) -> None:
+        """viewer 角色创建返回 403。"""
+        viewer_headers = _create_viewer_headers(client)
+        resp = client.post("/api/v1/vulns", json={"cve_id": "CVE-2024-5004"}, headers=viewer_headers)
+        assert resp.status_code == 403
+
+    def test_create_vuln_writes_audit_log(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """创建时写入审计日志。"""
+        client.post("/api/v1/vulns", json={"cve_id": "CVE-2024-5005"}, headers=auth_header)
+        logs = db.query(AuditLog).filter(AuditLog.action == "vuln.created").all()
+        assert len(logs) == 1
+        assert logs[0].detail["cve_id"] == "CVE-2024-5005"
+
+
+class TestVulnUpdate:
+    """CVE 更新接口测试。"""
+
+    def test_update_vuln_success(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """更新 CVE 字段成功，返回最新数据。"""
+        vuln = _create_vuln(db, "CVE-2024-3001")
+        payload = {
+            "vendor": "apache",
+            "title": "Log4j2 RCE",
+            "description": "JNDI lookup RCE",
+            "cvss": 9.8,
+            "severity": "critical",
+            "cvss_metrics": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "product": [{"vendor": "apache", "product": "log4j"}],
+            "remediation": {"mitigation": "upgrade to 2.15.0", "workaround": "set formatMsgNoLookups=true"},
+            "reference": [{"url": "https://nvd.nist.gov/vuln/detail/CVE-2024-3001", "label": "NVD"}],
+        }
+
+        resp = client.put(f"/api/v1/vulns/{vuln.id}", json=payload, headers=auth_header)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["vendor"] == "apache"
+        assert data["cvss"] == 9.8
+        assert data["severity"] == "critical"
+        assert data["cvss_metrics"].startswith("CVSS:3.1")
+        assert data["product"][0]["vendor"] == "apache"
+        assert data["product"][0]["product"] == "log4j"
+        assert data["remediation"]["mitigation"] == "upgrade to 2.15.0"
+        assert data["reference"][0]["url"].startswith("https://")
+        # cve_id 不可改
+        assert data["cve_id"] == "CVE-2024-3001"
+
+    def test_update_vuln_clears_fields_with_none(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """传 None 清空字段。"""
+        vuln = _create_vuln(db, "CVE-2024-3002")
+        # 先填值
+        client.put(
+            f"/api/v1/vulns/{vuln.id}",
+            json={"vendor": "apache", "cvss": 7.5},
+            headers=auth_header,
+        )
+        # 再清空
+        resp = client.put(
+            f"/api/v1/vulns/{vuln.id}",
+            json={"vendor": None, "cvss": None},
+            headers=auth_header,
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["vendor"] is None
+        assert data["cvss"] is None
+
+    def test_update_vuln_not_found(self, client: TestClient, auth_header: dict) -> None:
+        """更新不存在的 CVE 返回 404。"""
+        resp = client.put("/api/v1/vulns/99999", json={"vendor": "x"}, headers=auth_header)
+        assert resp.status_code == 404
+
+    def test_update_vuln_no_auth(self, client: TestClient, db: Session) -> None:
+        """未认证更新返回 401。"""
+        vuln = _create_vuln(db, "CVE-2024-3003")
+        resp = client.put(f"/api/v1/vulns/{vuln.id}", json={"vendor": "x"})
+        assert resp.status_code == 401
+
+    def test_update_vuln_viewer_forbidden(self, client: TestClient, db: Session) -> None:
+        """viewer 角色更新返回 403。"""
+        vuln = _create_vuln(db, "CVE-2024-3004")
+        viewer_headers = _create_viewer_headers(client)
+        resp = client.put(f"/api/v1/vulns/{vuln.id}", json={"vendor": "x"}, headers=viewer_headers)
+        assert resp.status_code == 403
+
+    def test_update_vuln_writes_audit_log(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """更新时写入审计日志。"""
+        vuln = _create_vuln(db, "CVE-2024-3005")
+        client.put(f"/api/v1/vulns/{vuln.id}", json={"vendor": "apache"}, headers=auth_header)
+
+        logs = db.query(AuditLog).filter(AuditLog.action == "vuln.updated").all()
+        assert len(logs) == 1
+        assert logs[0].resource_id == str(vuln.id)
+        assert logs[0].detail["cve_id"] == "CVE-2024-3005"
+
+
+class TestVulnExport:
+    """CVE 导出接口测试。"""
+
+    def test_export_json(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """导出 JSON 含选中 CVE 完整字段。"""
+        v1 = _create_vuln(db, "CVE-2024-6001")
+        v2 = _create_vuln(db, "CVE-2024-6002")
+        # 补充部分字段以便校验字段落地
+        v1.vendor = "apache"
+        v1.cvss = 9.8
+        db.commit()
+
+        resp = client.get(
+            "/api/v1/vulns/export",
+            params={"ids": f"{v1.id},{v2.id}", "format": "json"},
+            headers=auth_header,
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["format"] == "json"
+        assert data["count"] == 2
+        import json as _json
+
+        records = _json.loads(data["content"])
+        assert len(records) == 2
+        first = next(r for r in records if r["cve_id"] == "CVE-2024-6001")
+        assert first["vendor"] == "apache"
+        assert first["cvss"] == 9.8
+        # 导出字段与导入模板对齐，不含 id/poc_count
+        assert "id" not in first
+        assert "poc_count" not in first
+
+    def test_export_yaml(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """导出 YAML 为列表文本。"""
+        v = _create_vuln(db, "CVE-2024-6003")
+        resp = client.get(
+            "/api/v1/vulns/export",
+            params={"ids": str(v.id), "format": "yaml"},
+            headers=auth_header,
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["format"] == "yaml"
+        assert "CVE-2024-6003" in data["content"]
+
+    def test_export_empty_ids(self, client: TestClient, auth_header: dict) -> None:
+        """空 ID 列表返回空内容。"""
+        resp = client.get(
+            "/api/v1/vulns/export",
+            params={"ids": "", "format": "json"},
+            headers=auth_header,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["count"] == 0
+        assert resp.json()["data"]["content"] == ""
+
+    def test_export_no_auth(self, client: TestClient, db: Session) -> None:
+        """未认证导出返回 401。"""
+        v = _create_vuln(db, "CVE-2024-6004")
+        resp = client.get("/api/v1/vulns/export", params={"ids": str(v.id)})
+        assert resp.status_code == 401
+
+
 class TestVulnBatchDelete:
     """批量删除 CVE 接口测试。"""
 
