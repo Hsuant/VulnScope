@@ -7,7 +7,19 @@
     </PageHeader>
 
     <div v-loading="loading" class="tag-content">
-      <div v-for="ns in groupedTags" :key="ns.namespace" class="namespace-group">
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <el-input
+          v-model="q"
+          placeholder="搜索标签名称或命名空间..."
+          clearable
+          class="search-input"
+          :prefix-icon="Search"
+          @input="onSearchInput"
+        />
+      </div>
+
+      <div v-for="ns in filteredGroupedTags" :key="ns.namespace" class="namespace-group">
         <h3 class="ns-title">{{ ns.namespace }}</h3>
         <el-table :data="ns.tags" stripe class="tag-table" @row-click="openEditDialog">
           <el-table-column prop="name" label="名称" width="140">
@@ -41,8 +53,8 @@
         </el-table>
       </div>
 
-      <div v-if="!groupedTags.length && !loading" class="empty-area">
-        <EmptyState icon="Collection" title="暂无标签" description="尚未创建任何标签" />
+      <div v-if="!filteredGroupedTags.length && !loading" class="empty-area">
+        <EmptyState icon="Collection" :title="q ? '无匹配标签' : '暂无标签'" :description="q ? '尝试其他搜索关键词' : '尚未创建任何标签'" />
       </div>
     </div>
 
@@ -75,7 +87,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Search } from '@element-plus/icons-vue'
 import { listTags, createTag, updateTag, deleteTag, listNamespaces } from '@/api/tag'
 import { usePermission } from '@/composables/usePermission'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -88,6 +100,7 @@ const { canEdit } = usePermission()
 const loading = ref(true)
 const tags = ref<TagItem[]>([])
 const namespaces = ref<string[]>([])
+const q = ref('')
 const dialogVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref<number | null>(null)
@@ -106,9 +119,16 @@ const tagRules = {
   name: [{ required: true, message: '请输入标签名', trigger: 'blur' }],
 }
 
-const groupedTags = computed(() => {
+const filteredGroupedTags = computed(() => {
+  const kw = q.value.toLowerCase().trim()
   const map = new Map<string, TagItem[]>()
   for (const tag of tags.value) {
+    // 搜索过滤：匹配标签名或命名空间
+    if (kw) {
+      const matchName = tag.name.toLowerCase().includes(kw)
+      const matchNs = (tag.namespace || 'general').toLowerCase().includes(kw)
+      if (!matchName && !matchNs) continue
+    }
     const ns = tag.namespace || 'general'
     if (!map.has(ns)) map.set(ns, [])
     map.get(ns)!.push(tag)
@@ -130,6 +150,10 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+function onSearchInput() {
+  // 搜索为客户端过滤，无需重新请求
 }
 
 function openCreateDialog() {
@@ -196,6 +220,14 @@ onMounted(loadData)
   gap: $spacing-xl;
 }
 
+.search-bar {
+  margin-bottom: 0;
+}
+
+.search-input {
+  width: 320px;
+}
+
 .namespace-group {
   background: $bg-secondary;
   border: 1px solid $border-color;
@@ -235,8 +267,8 @@ onMounted(loadData)
 
 .action-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
   line-height: 1;
 
