@@ -290,6 +290,64 @@ def _infer_name(text: str, fmt: str) -> str:
     return f"imported-{content_hash}"
 
 
+def _resolve_tag(db: Session, tag_str: str) -> Tag:
+    """解析导入的标签字符串，自动匹配或创建规范标签。
+
+    匹配策略：
+    1. 支持 "namespace:name" 格式解析
+    2. 按名称不区分大小写匹配已有标签（跨所有 namespace）
+    3. 匹配成功则复用已有标签（保持其 namespace 和 name 大小写）
+    4. 匹配失败则创建新标签（namespace 从输入推断，无则默认 "general"）
+
+    Args:
+        db: 数据库会话。
+        tag_str: 导入的标签字符串，可能为 "namespace:name" 或纯 "name"。
+
+    Returns:
+        Tag 对象（已 flush 到数据库）。
+    """
+    tag_str = tag_str.strip()
+    if not tag_str:
+        raise ValueError("标签名不能为空")
+
+    # 尝试解析 namespace:name 格式
+    namespace_hint: str | None = None
+    name = tag_str
+    if ":" in tag_str:
+        parts = tag_str.split(":", 1)
+        ns = parts[0].strip()
+        nm = parts[1].strip()
+        if nm:
+            namespace_hint = ns
+            name = nm
+        # 若冒号后为空（如 "type:"），视作纯 name="type"
+
+    # 不区分大小写匹配已有标签
+    from sqlalchemy import func
+
+    existing = db.scalar(select(Tag).where(func.lower(Tag.name) == name.lower()))
+    if existing:
+        return existing
+
+    # 未匹配到，创建新标签
+    # 若输入有 namespace_hint 且该 namespace 已存在，沿用之；否则默认 "general"
+    final_namespace = "general"
+    if namespace_hint:
+        # 检查 namespace 是否已存在（避免拼写错误创建孤立 namespace）
+        ns_exists = db.scalar(
+            select(Tag).where(func.lower(Tag.namespace) == namespace_hint.lower()).limit(1)
+        )
+        if ns_exists:
+            final_namespace = ns_exists.namespace  # 保持已有 namespace 大小写
+        else:
+            final_namespace = namespace_hint
+
+    tag = Tag(namespace=final_namespace, name=name)
+    db.add(tag)
+    db.flush()
+    return tag
+
+
 def _import_single_poc(
     db: Session,
     npoc: Any,
@@ -348,16 +406,12 @@ def _import_single_poc(
                 db.flush()
             db.add(PocVuln(poc_id=poc.id, vuln_id=vuln.id))
 
-    # 关联标签（按名称匹配/创建）
-    for tag_name in npoc.tags:
-        tag_name = tag_name.strip()
-        if not tag_name:
+    # 关联标签（自动匹配已有标签，不存在的按规范格式创建）
+    for tag_str in npoc.tags:
+        tag_str = tag_str.strip()
+        if not tag_str:
             continue
-        tag = db.scalar(select(Tag).where(Tag.namespace == "general", Tag.name == tag_name))
-        if tag is None:
-            tag = Tag(namespace="general", name=tag_name)
-            db.add(tag)
-            db.flush()
+        tag = _resolve_tag(db, tag_str)
         db.add(PocTag(poc_id=poc.id, tag_id=tag.id))
 
     # 创建首条版本快照

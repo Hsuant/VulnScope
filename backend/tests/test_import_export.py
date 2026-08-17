@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 # ── 测试数据 ────────────────────────────────────────────────────────────
 
@@ -245,7 +246,155 @@ class TestImport:
         assert result2["skipped"] == 1
 
 
-class TestExport:
+# ── 标签匹配测试 ────────────────────────────────────────────────────────
+
+
+class TestImportTagMatching:
+    """导入时标签自动匹配测试。"""
+
+    SAMPLE_WITH_TAGS = """id: test-tag-matching
+
+info:
+  name: Test Tag Matching
+  severity: medium
+  author: tester
+  tags: rce,oob,struts
+  description: Test POC for tag matching
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/test"
+"""
+
+    SAMPLE_WITH_NS_TAGS = """id: test-ns-tag-matching
+
+info:
+  name: Test NS Tag Matching
+  severity: high
+  author: tester
+  tags: type:cve,technique:rce
+  description: Test POC for namespace tag matching
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/test"
+"""
+
+    def test_import_tags_match_existing_case_insensitive(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入时标签名不区分大小写匹配已有标签。"""
+        # 预先创建标签 "RCE"（大写），namespace="technique"
+        from app.models.poc import Tag
+
+        tag = Tag(namespace="technique", name="RCE")
+        db.add(tag)
+        db.commit()
+
+        # 导入带 "rce"（小写）标签的 POC
+        from app.services.import_service import import_pocs
+
+        # 使用 db 直接调用，从 analyze 导入
+        from app.services.import_service import _resolve_tag
+
+        resolved = _resolve_tag(db, "rce")
+        assert resolved.id == tag.id
+        assert resolved.namespace == "technique"
+        assert resolved.name == "RCE"
+
+    def test_import_new_tag_default_namespace(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入时不存在标签自动创建，namespace 默认 general。"""
+        from app.services.import_service import _resolve_tag
+
+        resolved = _resolve_tag(db, "nonexistent-tag-xyz")
+        assert resolved.namespace == "general"
+        assert resolved.name == "nonexistent-tag-xyz"
+
+    def test_import_tag_with_namespace_hint(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入标签含 namespace:name 格式，解析后创建。"""
+        from app.models.poc import Tag
+
+        # 预先创建 namespace "type" 的标签
+        existing = Tag(namespace="type", name="cve")
+        db.add(existing)
+        db.commit()
+
+        from app.services.import_service import _resolve_tag
+
+        # "type:CVE" → 大小写不敏感匹配到 namespace=type, name=cve
+        resolved = _resolve_tag(db, "type:CVE")
+        assert resolved.id == existing.id
+        assert resolved.namespace == "type"
+        assert resolved.name == "cve"
+
+    def test_import_tag_new_namespace(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入标签指定了不存在的 namespace，沿用输入 namespace。"""
+        from app.services.import_service import _resolve_tag
+
+        resolved = _resolve_tag(db, "custom-ns:my-tag")
+        assert resolved.namespace == "custom-ns"
+        assert resolved.name == "my-tag"
+
+    def test_import_poc_tags_matched_via_full_flow(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """完整导入流程中标签自动匹配生效。"""
+        from app.models.poc import Tag as TagModel
+
+        # 预先创建两个标签（不同 namespace）
+        db.add(TagModel(namespace="technique", name="rce"))
+        db.add(TagModel(namespace="technique", name="oob"))
+        db.flush()
+        db.commit()
+
+        # 导入含 rce/oob/struts 的 POC
+        params = {"content": self.SAMPLE_WITH_TAGS, "source": "imported"}
+        resp = client.post("/api/v1/import", params=params, headers=auth_header)
+        assert resp.status_code == 200
+        result = resp.json()["data"]
+        assert result["success"] == 1
+
+        # 验证标签：rce → technique:rce, oob → technique:oob, struts → general:struts
+        resp = client.get("/api/v1/pocs/search?q=test-tag-matching", headers=auth_header)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total"] >= 1
+        item = data["items"][0]
+        tag_namespaces = {t["namespace"] for t in item["tags"]}
+        tag_names = {t["name"] for t in item["tags"]}
+        assert "technique" in tag_namespaces
+        assert "general" in tag_namespaces
+        assert "rce" in tag_names or "RCE" in tag_names
+        assert "struts" in tag_names
+
+    def test_import_poc_ns_tags(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入 namespace:name 格式的标签。"""
+        # 导入含 type:cve, technique:rce 的 POC
+        params = {"content": self.SAMPLE_WITH_NS_TAGS, "source": "imported"}
+        resp = client.post("/api/v1/import", params=params, headers=auth_header)
+        assert resp.status_code == 200
+        result = resp.json()["data"]
+        assert result["success"] == 1
+
+        # 验证标签已创建
+        resp = client.get("/api/v1/pocs/search?q=test-ns-tag-matching", headers=auth_header)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total"] >= 1
+        item = data["items"][0]
+        tag_namespaces = {t["namespace"] for t in item["tags"]}
+        assert "type" in tag_namespaces
+        assert "technique" in tag_namespaces
     """POC 导出接口测试。"""
 
     def test_export_json(self, client: TestClient, auth_header: dict) -> None:
