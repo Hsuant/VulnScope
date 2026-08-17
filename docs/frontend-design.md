@@ -1,6 +1,6 @@
 # VulnScope POC 管理系统 — 前端设计文档
 
-> 版本：v1.0 | 日期：2026-08-14 | 对应后端：`backend/` v0.1.0 | 技术栈：Vue 3 + TypeScript + Vite + Element Plus + Pinia
+> 版本：v1.1 | 日期：2026-08-18 | 对应后端：`backend/` v0.2.0 | 技术栈：Vue 3 + TypeScript + Vite + Element Plus + Pinia
 
 ---
 
@@ -20,7 +20,7 @@
    - [7.5 POC 新建/编辑页](#75-poc-新建编辑页)
    - [7.6 导入向导页](#76-导入向导页)
    - [7.7 标签管理页](#77-标签管理页)
-   - [7.8 CVE 漏洞库页](#78-cve-漏洞库页)
+   - [7.8 CVE 漏洞库](#78-cve-漏洞库)
    - [7.9 插件面板页](#79-插件面板页)
    - [7.10 用户管理页](#710-用户管理页)
    - [7.11 审计日志页](#711-审计日志页)
@@ -116,7 +116,7 @@ frontend/
     │   ├── auth.ts               # POST /auth/login, /auth/refresh, GET /auth/me
     │   ├── poc.ts                # POC CRUD + 搜索 + 版本 + 克隆 + 状态
     │   ├── tag.ts                # 标签 CRUD + 命名空间
-    │   ├── vuln.ts               # CVE 漏洞库
+    │   ├── vuln.ts               # CVE CRUD + 按编号查询 + 批量导入
     │   ├── dashboard.ts          # Dashboard 统计
     │   ├── import-export.ts      # 导入导出
     │   ├── plugin.ts             # 插件管理
@@ -153,7 +153,10 @@ frontend/
     │   ├── tags/
     │   │   └── TagManageView.vue
     │   ├── vulns/
-    │   │   └── VulnListView.vue
+    │   │   ├── VulnListView.vue     # CVE 列表（搜索/筛选/行点击进详情/批量删除）
+    │   │   ├── VulnDetailView.vue   # CVE 详情（指标条/分区卡片/Markdown 渲染）
+    │   │   ├── VulnFormView.vue     # CVE 新建 + 编辑（共享表单）
+    │   │   └── VulnImportView.vue   # CVE 批量导入（json/jsonl/yaml/markdown）
     │   ├── plugins/
     │   │   └── PluginListView.vue
     │   ├── system/
@@ -192,9 +195,11 @@ frontend/
     │   └── transitions.scss      # 过渡动画定义
     │
     └── utils/                    # 工具函数
-        ├── format.ts             # 日期格式化、枚举映射
-        ├── constants.ts          # 常量定义（状态枚举、严重级别映射）
-        └── validators.ts         # 表单校验规则
+        ├── format.ts             # 日期格式化、剪贴板、枚举映射
+        ├── constants.ts          # 常量定义（状态/级别/来源/格式枚举映射）
+        ├── validators.ts         # 表单校验规则
+        ├── cvss.ts               # CVSS 向量解析（拆解为中文标注指标片段）
+        └── cveTemplates.ts      # CVE 导入模板集合（json/jsonl/yaml/markdown）
 ```
 
 ---
@@ -264,7 +269,31 @@ const routes = [
         path: 'vulns',
         name: 'VulnList',
         component: () => import('@/views/vulns/VulnListView.vue'),
-        meta: { title: 'CVE 漏洞库', icon: 'Warning' },
+        meta: { title: 'CVE 列表', icon: 'Warning' },
+      },
+      {
+        path: 'vulns/new',
+        name: 'VulnCreate',
+        component: () => import('@/views/vulns/VulnFormView.vue'),
+        meta: { title: '新建 CVE', icon: 'Edit', roles: ['editor', 'admin'] },
+      },
+      {
+        path: 'vulns/:id',
+        name: 'VulnDetail',
+        component: () => import('@/views/vulns/VulnDetailView.vue'),
+        meta: { title: 'CVE 详情' },
+      },
+      {
+        path: 'vulns/:id/edit',
+        name: 'VulnEdit',
+        component: () => import('@/views/vulns/VulnFormView.vue'),
+        meta: { title: '编辑 CVE', roles: ['editor', 'admin'] },
+      },
+      {
+        path: 'vulns/import',
+        name: 'VulnImport',
+        component: () => import('@/views/vulns/VulnImportView.vue'),
+        meta: { title: '导入 CVE', icon: 'Upload', roles: ['editor', 'admin'] },
       },
       {
         path: 'plugins',
@@ -308,7 +337,10 @@ const routes = [
 │  ├─ 新建 POC       │  /pocs/new              editor/admin
 │  └─ 导入 POC       │  /pocs/import           editor/admin
 ├─ 标签管理          ─┤  /tags                  viewer/editor/admin
-├─ CVE 漏洞库        ─┤  /vulns                 viewer/editor/admin
+├─ CVE 漏洞库        ─┤
+│  ├─ CVE 列表       │  /vulns                 viewer/editor/admin
+│  ├─ 新建 CVE       │  /vulns/new             editor/admin
+│  └─ 导入 CVE       │  /vulns/import          editor/admin
 ├─ 插件面板          ─┤  /plugins               viewer/editor/admin
 └─ 系统管理          ─┤
    ├─ 用户管理       │  /system/users           admin
@@ -814,35 +846,71 @@ Step 1: 选择导入方式    Step 2: 解析预览    Step 3: 完成报告
 
 ---
 
-### 7.8 CVE 漏洞库页
+### 7.8 CVE 漏洞库
+
+CVE 漏洞库由列表、详情、新建/编辑、导入四个页面构成，共享 `types/vuln.ts` 类型与 `api/vuln.ts` 客户端。
+
+#### 7.8.1 CVE 列表页
 
 **路径**：`/vulns`
 **角色**：viewer / editor / admin
 **后端 API**：`GET /vulns?page=&page_size=&severity=&q=`
 
-**页面结构**：
+页面顶部为筛选栏（CVE 编号/标题搜索 + 严重级别下拉 + 清空），中部为数据表格，底部为分页。表格列：CVE 编号（等宽 accent）、标题、级别（`SeverityBadge` 彩色徽标）、CVSS 评分（保留一位小数）、POC 数、更新时间、操作。
+
+交互：
+
+- 单击数据行（勾选列与操作列除外）跳转 CVE 详情页，行悬停指针提示
+- 操作列「详情」按钮同样进入详情；「删除」按钮（editor/admin）弹出确认
+- 勾选多条触发批量操作栏，支持批量删除
+- 右上角「导入 CVE」「新建 CVE」入口（editor/admin）
+
+#### 7.8.2 CVE 详情页
+
+**路径**：`/vulns/:id`
+**角色**：viewer / editor / admin
+**后端 API**：`GET /vulns/{id}`
+
+采用单栏堆叠 + 顶部指标条布局，分区卡片样式统一（圆角、边框、标题前 3px accent 竖条）：
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  PageHeader: "CVE 漏洞库"                                    │
-├──────────────────────────────────────────────────────────────┤
-│  筛选栏                                                      │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                    │
-│  │ 搜索 CVE  │ │ 级别筛选  │ │ 筛选按钮  │                    │
-│  └──────────┘ └──────────┘ └──────────┘                    │
-├──────────────────────────────────────────────────────────────┤
-│  CVE 表格                                                    │
-│  ┌──────────┬──────────┬──────┬──────┬────────┬──────────┐  │
-│  │ CVE 编号  │ 标题     │ 级别  │ CVSS │ POC 数 │ 操作     │  │
-│  │ CVE-2017 │ Apache... │ 高   │ 10.0 │ 3      │ 查看详情  │  │
-│  └──────────┴──────────┴──────┴──────┴────────┴──────────┘  │
-├──────────────────────────────────────────────────────────────┤
-│  分页                                                        │
-└──────────────────────────────────────────────────────────────┘
+┌─ PageHeader: CVE-2021-44228 / 标题   [返回][关联POC][编辑*][删除*] ─┐
+│ ▸ 指标条：严重级别 │ CVSS 9.8 v3.1 │ 厂商 │ 关联POC │ 更新时间        │
+│ ▸ CVSS 指标向量（原文 + 复制按钮 + 分解 chips）                        │
+│ ▸ 漏洞描述（MarkdownRenderer）                                        │
+│ ▸ 受影响产品（el-table）                                              │
+│ ▸ 修复建议（官方补丁绿边 / 临时方案橙边 双卡片，MarkdownRenderer）      │
+│ ▸ 参考链接（可点跳转，标签 + host 副标注）                             │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-- 点击 CVE 编号可查看详情（弹窗展示完整的 CVE 信息 + 关联 POC 列表）
-- POC 数可点击跳转至 POC 列表并预填 CVE 筛选条件
+- CVSS 向量经 `utils/cvss.ts` 的 `parseCvssVector` 拆解为 `{label, valueLabel}` 指标片段，渲染为 chips
+- 「关联 POC」调用 `listPocs({cve})` 取首个关联 POC 直达其详情页，无关联提示
+- 「编辑」（editor/admin）跳 `/vulns/:id/edit`；「删除」确认后删除并回列表
+- 复用 `SeverityBadge`、`MarkdownRenderer`、`PageHeader`、`ConfirmDialog`
+
+#### 7.8.3 CVE 新建 / 编辑页
+
+**路径**：`/vulns/new`（新建）、`/vulns/:id/edit`（编辑）
+**角色**：editor / admin
+**后端 API**：`POST /vulns`（新建）、`PUT /vulns/{id}`（编辑）
+
+新建与编辑共用 `VulnFormView.vue`，以 `isEdit = !!route.params.id` 切换模式，风格与 POC 表单一致。表单分区：基本信息（CVE 编号新建态可填且须匹配 `CVE-YYYY-NNNNN`，编辑态只读；标题、厂商、严重级别下拉、CVSS 数值、CVSS 向量）、漏洞描述（textarea，支持 Markdown）、受影响产品（动态子卡片，2 列网格，含/不含边界下拉，稳定 `_key` 防增删错位）、修复建议（官方补丁/临时方案双 textarea）、参考链接（动态行，URL + 标签）。底部操作栏贴底固定（sticky），新建态额外提供「保存并继续」便于批量录入。
+
+保存逻辑：编辑态调 `updateVuln`（覆盖式，空值即清空）；新建态调 `createVuln`，成功跳详情页。空值规整：trim、空串转 null、产品全空与修复建议双空转 null、参考链接过滤空 URL。
+
+#### 7.8.4 CVE 导入页
+
+**路径**：`/vulns/import`
+**角色**：editor / admin
+**后端 API**：`POST /vulns/import`（multipart，支持 files/content）
+
+双栏布局，左侧导入面板（上传文件 / 粘贴文本 Tab 切换 + 拖拽上传区 + 文件卡片 + 解析并导入按钮），右侧结果面板（环形进度 + 四段明细 + 失败详情 + 空状态）。
+
+- 支持格式：JSON / JSONL / YAML / Markdown，扩展名优先、内容启发式判定
+- 右上角「查看模板」打开抽屉，`utils/cveTemplates.ts` 提供四种格式完整模板，可一键复制
+- 结果面板四段明细：新建（绿）/更新（蓝）/跳过（黄）/失败（红），环形显示 `success = created + updated`
+- 失败详情列出条目名与错误信息，单条解析异常不阻塞整批
 
 ---
 
@@ -1462,4 +1530,4 @@ interface DashboardData {
 
 ---
 
-> 本文档对应后端 API 版本 v0.1.0，前端实现 Phase 1~6 总计约 15 天开发周期。
+> 本文档对应后端 API 版本 v0.2.0，前端实现 Phase 1~6 总计约 15 天开发周期。

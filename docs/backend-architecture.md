@@ -1,6 +1,6 @@
 # VulnScope 后端技术架构文档
 
-> 版本：v1.0 | 日期：2026-08-13 | 对应后端：`backend/` v0.1.0
+> 版本：v1.1 | 日期：2026-08-18 | 对应后端：`backend/` v0.2.0
 
 ---
 
@@ -88,19 +88,35 @@ backend/
     │   └── auth.py              # 认证相关 schema
     ├── api/                     # API 路由层
     │   ├── __init__.py
-    │   ├── deps.py              # 依赖注入（DbSession / CurrentUser / AdminUser）
+    │   ├── deps.py              # 依赖注入（DbSession / CurrentUser / require_roles）
     │   └── v1/                  # v1 API 版本
     │       ├── __init__.py
     │       ├── health.py        # 健康检查
-    │       └── auth.py          # 认证路由
+    │       ├── auth.py          # 认证路由
+    │       ├── pocs.py          # POC 路由（CRUD/搜索/版本/克隆/状态）
+    │       ├── vulns.py        # CVE 路由（CRUD/批量导入/按编号查询）
+    │       ├── tags.py          # 标签路由
+    │       ├── users.py        # 用户路由
+    │       ├── dashboard.py    # 仪表盘路由
+    │       ├── plugins.py      # 插件路由
+    │       ├── import_export.py # POC 导入导出路由
+    │       └── audit_logs.py   # 审计日志路由
     ├── services/                # 业务服务层
     │   ├── __init__.py
-    │   └── auth_service.py      # 认证业务 + 种子数据初始化
+    │   ├── auth_service.py      # 认证业务 + 种子数据初始化
+    │   ├── poc_service.py      # POC CRUD/搜索/版本/克隆
+    │   ├── vuln_service.py     # CVE 列表/详情/创建/更新/删除
+    │   ├── vuln_parser.py      # CVE 导入解析器（json/jsonl/yaml/markdown 判定与归一化）
+    │   ├── vuln_import_service.py  # CVE 批量导入管道（解析→upsert→汇总）
+    │   ├── import_service.py   # POC 导入导出管道（格式嗅探/解析/去重/入库）
+    │   ├── tag_service.py      # 标签 CRUD + 命名空间
+    │   ├── dashboard_service.py # 仪表盘统计聚合
+    │   └── poc_deployment_service.py # POC 执行元信息（v2 预留）
     └── plugins/                 # 插件框架（M3 完整实现）
         ├── __init__.py
         ├── base.py              # NormalizedPoc IR + 4 个接口契约
         ├── registry.py          # 插件注册表
-        ├── parser/              # 解析器插件槽
+        ├── parser/              # 解析器插件槽（nuclei/json/markdown）
         └── source/              # 来源插件槽
 ```
 
@@ -250,12 +266,13 @@ v1 事件类型：
 
 | 事件 | 触发时机 | 消费者 |
 |------|---------|--------|
-| `poc.created` | POC 创建 | 审计日志（M2 接入） |
-| `poc.updated` | POC 更新 | 审计日志（M2 接入） |
-| `poc.deleted` | POC 删除 | 审计日志（M2 接入） |
-| `poc.status_changed` | POC 状态变更 | 审计日志（M2 接入） |
-| `poc.version_created` | POC 内容版本快照 | 审计日志（M2 接入） |
-| `poc.batch_imported` | 批量导入完成 | 审计日志（M2 接入） |
+| `poc.created` | POC 创建 | 审计日志 |
+| `poc.updated` | POC 更新 | 审计日志 |
+| `poc.deleted` | POC 删除 | 审计日志 |
+| `poc.status_changed` | POC 状态变更 | 审计日志 |
+| `poc.version_created` | POC 内容版本快照 | 审计日志 |
+| `poc.batch_imported` | POC 批量导入完成 | 审计日志、仪表盘缓存失效 |
+| `vuln.batch_imported` | CVE 批量导入完成 | 仪表盘缓存失效 |
 
 ### 4.5 缓存抽象 (`app/core/cache.py`)
 
@@ -315,19 +332,31 @@ v1 定义接口契约与注册表，M3 实现完整发现/加载/生命周期管
 | description | String(255) | Nullable | 描述 |
 | permissions | String(2048) | NOT NULL | 权限 JSON 字符串 |
 
-### 5.2 规划模型（M2）
+### 5.2 CVE 漏洞实体（vuln 表）
 
-M2 将引入以下模型：
+`vuln` 表存储 CVE 漏洞元数据，以 `cve_id` 为业务主键，通过 `poc_vuln` 关联表与 `poc` 多对多关联。POC 导入解析到 CVE 编号时自动创建或按需补充该表记录。
 
-- **poc**：POC 主表（name, title, description, category, severity, format, content, content_hash, author, source, status, version, extra_meta JSON）
-- **poc_version**：POC 内容历史版本快照
-- **vuln**：CVE 漏洞实体
-- **poc_vuln**：POC↔CVE 多对多关联
-- **tag**：标签字典
-- **poc_tag**：POC↔标签多对多关联
-- **poc_source_record**：来源溯源记录
-- **poc_attachment**：附属文件
-- **audit_log**：操作审计日志
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | Integer | PK, AUTO_INCREMENT | 主键 |
+| cve_id | String(32) | UNIQUE, NOT NULL, INDEX | CVE 编号，业务主键 |
+| vendor | String(128) | NULL, INDEX | 厂商（受影响软件的开发公司/组织） |
+| title | String(255) | NULL | 漏洞标题 |
+| description | Text | NULL | 漏洞描述（支持 Markdown） |
+| cvss | Float | NULL | CVSS 评分，0.0–10.0 |
+| severity | String(16) | NULL, INDEX | 严重级别（info/low/medium/high/critical） |
+| cvss_metrics | String(255) | NULL | CVSS 指标向量，如 `CVSS:3.1/AV:N/...` |
+| product | JSON | NULL | 受影响产品列表 `[{vendor, product, version, version_start, version_start_type, version_end, version_end_type}]` |
+| remediation | JSON | NULL | 修复建议 `{mitigation, workaround}` |
+| reference | JSON | NULL | 参考链接 `[{url, label}]` |
+| created_at | DateTime | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+| updated_at | DateTime | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+
+关联表 `poc_vuln`（`poc_id` ↔ `vuln_id` 复合主键）维护 POC 与 CVE 的多对多关系，删除任一端时级联清理关联记录。
+
+### 5.3 其余数据模型
+
+除上述 user / role / vuln 外，核心存储层还包含：`poc`（POC 主表）、`poc_version`（内容版本快照）、`poc_vuln`（POC↔CVE 关联）、`tag` / `poc_tag`（标签字典与关联）、`category` / `poc_category`（树形分类）、`vendor` / `product` / `component`（厂商-产品-组件）、`poc_affected`（版本影响范围）、`poc_source_record`（来源溯源）、`poc_attachment`（附属文件）、`audit_log`（操作审计日志）。模型定义集中于 `app/models/poc.py`，迁移文件位于 `alembic/versions/`。
 
 ---
 
@@ -468,7 +497,10 @@ Authorization: Bearer <access_token>
 | POST | `/import` | 导入 POC | M2 |
 | GET | `/export` | 导出 POC | M2 |
 | GET/POST | `/tags` | 标签管理 | M2 |
-| GET | `/vulns` | CVE 漏洞库 | M2 |
+| GET | `/vulns` | CVE 列表（分页/筛选/搜索） | M2 |
+| GET/POST/PUT/DELETE | `/vulns/{id}` | CVE 详情/创建/更新/删除 | M2 |
+| GET | `/vulns/by-cve/{cve_id}` | 按 CVE 编号查询 | M2 |
+| POST | `/vulns/import` | 批量导入 CVE（json/jsonl/yaml/markdown） | M4 |
 | GET | `/plugins` | 插件列表 | M3 |
 | GET/POST | `/users` | 用户管理（管理员） | M2 |
 | GET/POST | `/audit-logs` | 审计日志 | M2 |
@@ -763,11 +795,11 @@ alembic downgrade <revision_id>
 | 里程碑 | 内容 | 状态 |
 |--------|------|------|
 | M1 骨架 | 项目脚手架、配置分层、DB 迁移、鉴权、统一异常、插件接口 | ✅ 完成 |
-| M2 核心存储 | POC/Vuln/Tag/PocVersion 模型、CRUD API、过滤排序分页、搜索 | ⏳ 进行中 |
-| M3 插件框架 | 注册表、事件总线、Parser/Source 槽、Nuclei 解析器、模板校验 | ⏳ 待开始 |
-| M4 导入导出 | 导入向导 API、格式嗅探、去重、导出 | ⏳ 待开始 |
-| M5 前端 | Vue3 列表/详情/导入/标签/插件面板/系统页 | ⏳ 待开始 |
-| M6 收尾 | Docker Compose、种子数据、文档、压测 | ⏳ 待开始 |
+| M2 核心存储 | POC/Vuln/Tag/PocVersion 模型、CRUD API、过滤排序分页、搜索 | ✅ 完成 |
+| M3 插件框架 | 注册表、事件总线、Parser/Source 槽、Nuclei 解析器、模板校验 | ✅ 完成 |
+| M4 导入导出 | 导入向导 API、格式嗅探、去重、导出、CVE 批量导入 | ✅ 完成 |
+| M5 前端 | Vue3 列表/详情/导入/标签/插件面板/系统页、CVE 详情/编辑/导入 | ✅ 完成 |
+| M6 部署 | Docker Compose 一键部署、种子数据、文档、压测 | ⏳ 进行中（Docker Compose 尚未完成） |
 
 ### B. 依赖清单
 
@@ -797,5 +829,5 @@ pytest-asyncio>=0.23  # 异步测试支持
 | 文档 | 路径 | 说明 |
 |------|------|------|
 | 开发方案总纲 | `docs/开发方案.md` | 完整系统设计方案 |
-| Nuclei 模板参考 | `docs/poc-template/nuclei-reference.yaml` | 标准 POC 模板规范 |
+| Nuclei 模板参考 | `templates/poc/nuclei-reference.yaml` | 标准 POC 模板规范 |
 | OpenAPI 文档 | `/docs`（运行时） | Swagger UI 交互式文档 |

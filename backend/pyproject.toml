@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vulnscope-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "VulnScope POC 管理系统后端 — POC 管理与持久化存储"
 requires-python = ">=3.10"
 dependencies = [

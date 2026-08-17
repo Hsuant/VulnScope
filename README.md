@@ -20,7 +20,7 @@
 - **多格式支持** — Nuclei YAML、Pocsuite3、JSON、原始脚本，格式无关架构
 - **批量导入导出** — 自动格式嗅探、内容去重、批量多文件支持
 - **标签分类系统** — 命名空间标签 + 树形分类，灵活组织 POC 资产
-- **CVE 漏洞库** — CVE 编号自动关联，漏洞与 POC 双向检索
+- **CVE 漏洞库** — CVE 详情、编辑、新建、批量导入（JSON/JSONL/YAML/Markdown），POC 导入自动同步 CVE 元数据，漏洞与 POC 双向检索
 - **统计看板** — 严重级别/状态/来源分布、创建趋势、热门标签、高产作者
 - **RBAC 权限** — 三角色（查看者/编辑者/管理员），颗粒度操作控制
 - **审计日志** — 所有写操作全量留痕，操作前后摘要 + IP 记录
@@ -70,14 +70,16 @@ npm install
 npm run dev
 ```
 
-### Docker 部署（可选）
+### Docker 部署（可选，进行中）
 
-仓库自带 `docker-compose.yml`，可一键启动前后端：
+仓库自带 `docker-compose.yml`，用于本地一键拉起前后端容器：
 
 ```bash
 # 在项目根目录
 docker compose up -d
 ```
+
+> 该编排当前为开发用途（前端运行 `npm run dev` 热更新开发服务器，未做生产构建与镜像发布），生产级容器化（多阶段构建、Nginx 静态托管、健康检查与数据卷持久化）随 M6 推进中。
 
 ### 访问地址
 
@@ -121,8 +123,11 @@ VulnScope/
 │       ├── stores/           # 状态管理
 │       ├── router/           # 路由
 │       └── styles/           # 全局样式
+├── templates/                # 导入/参考模板
+│   ├── cve/                  # CVE 导入模板（json/jsonl/yaml/markdown）
+│   └── poc/                  # POC 模板（nuclei-template.yaml）
 ├── docs/                     # 开发文档 + 使用说明书
-└── docker-compose.yml        # Docker 一键部署
+└── docker-compose.yml        # Docker 一键部署（M6 进行中）
 ```
 
 ## API 概览
@@ -145,8 +150,11 @@ VulnScope/
 | GET | `/api/v1/export` | 导出 POC | 需认证 |
 | GET/POST/PUT/DELETE | `/api/v1/tags` | 标签管理 | 需认证 |
 | GET | `/api/v1/tags/namespaces` | 标签命名空间 | 需认证 |
-| GET | `/api/v1/vulns` | CVE 漏洞库 | 需认证 |
+| GET | `/api/v1/vulns` | CVE 列表（分页/筛选/搜索） | 需认证 |
+| GET/POST | `/api/v1/vulns` / `/api/v1/vulns/{id}` | CVE 查询 / 创建 / 详情 / 更新 | 需认证（写操作 editor/admin） |
 | GET | `/api/v1/vulns/by-cve/{cve_id}` | 按 CVE 编号查询 | 需认证 |
+| POST | `/api/v1/vulns/import` | 批量导入 CVE（json/jsonl/yaml/markdown） | editor/admin |
+| DELETE | `/api/v1/vulns/{id}` | 删除单个/批量 CVE | editor/admin |
 | GET | `/api/v1/dashboard/*` | 统计看板 | 需认证 |
 | GET/POST/PUT/DELETE | `/api/v1/users` | 用户管理 | admin |
 | GET | `/api/v1/users/roles` | 角色列表 | admin |
@@ -200,6 +208,7 @@ cd backend
 - **新建 POC** — 基本信息填写、关联信息配置、表单构建模式（HTTP/TCP/DNS 协议）、匹配规则配置、源码模式编辑
 - **标签管理** — 命名空间体系、新建/编辑/删除标签、最佳实践
 - **导入导出** — 批量文件上传、粘贴文本、格式自动识别
+- **CVE 漏洞库** — 列表/详情/编辑/新建、批量导入（JSON/JSONL/YAML/Markdown）、POC 导入联动同步
 - **常见问题** — 名称冲突、格式限制、版本回滚、内容去重
 
 ## 开发里程碑
@@ -209,7 +218,7 @@ cd backend
 - ✅ **M3 插件框架** — 注册表、事件总线、Parser/Source 槽
 - ✅ **M4 导入导出** — 导入向导、格式嗅探、去重、导出
 - ✅ **M5 前端** — 完整管理后台
-- ✅ **M6 部署** — Docker Compose 一键部署
+- ⏳ **M6 部署** — Docker Compose 一键部署（尚未完成）
 - ⏳ **M7 收尾** — 压测、性能优化
 - ⏳ **v2 验证模块** — POC 远程验证执行
 - ⏳ **v2 AI 生成** — 基于漏洞描述的 POC 自动生成
