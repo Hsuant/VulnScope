@@ -2,10 +2,10 @@
   <div class="poc-list-view">
     <PageHeader title="POC 列表">
       <template #actions>
-        <el-button :icon="Download" @click="handleExport" :disabled="!selectedIds.length">
+        <el-button :icon="Upload" @click="handleExport" :disabled="!selectedIds.length">
           导出
         </el-button>
-        <el-button :icon="Upload" @click="$router.push('/pocs/import')" v-if="canEdit">
+        <el-button :icon="Download" @click="$router.push('/pocs/import')" v-if="canEdit">
           导入 POC
         </el-button>
         <el-button type="primary" :icon="Plus" @click="$router.push('/pocs/new')" v-if="canEdit">
@@ -45,7 +45,7 @@
       <el-select v-if="canEdit" v-model="batchStatus" placeholder="批量改状态" size="small" class="batch-select" @change="handleBatchStatus">
         <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
       </el-select>
-      <el-button size="small" :icon="Download" @click="handleExport">批量导出</el-button>
+      <el-button size="small" :icon="Upload" @click="handleExport">批量导出</el-button>
       <el-button v-if="canEdit" size="small" type="danger" :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
     </div>
 
@@ -102,7 +102,7 @@
       <el-table-column label="操作" width="150" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-cell">
-            <el-button text size="small" type="primary" @click.stop="goToDetail(row.id)">查看</el-button>
+            <el-button text size="small" type="primary" @click.stop="goToDetail(row.id)">详情</el-button>
             <el-button v-if="canEdit" text size="small" type="danger" :icon="Delete" @click.stop="handleDelete(row)">删除</el-button>
           </div>
         </template>
