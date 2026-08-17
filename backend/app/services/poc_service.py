@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.events import DomainEvent, event_bus
 from app.core.exceptions import AppError, ErrorCode, NotFoundError
+from app.core.timeutil import iso_utc
 from app.models.poc import (
     AuditLog,
     Category,
@@ -83,6 +84,29 @@ def _publish_event(event_type: str, aggregate_id: str | None, payload: dict[str,
     """发布领域事件（异步派发，不阻塞当前事务）。"""
     event = DomainEvent(event_type=event_type, aggregate_id=aggregate_id, payload=payload)
     event_bus.publish(event)
+
+
+def _derive_meta_from_content(content: str, fmt: str) -> dict[str, Any]:
+    """从 POC 内容解析出 references / fofa_syntax / shodan_syntax / publicwww_syntax。
+
+    供 create_poc 在源码方式新建时自动提取元数据，与 import 管道使用同一套解析器。
+    仅返回约定的四个键，避免污染 extra_meta 中的其他字段。
+    """
+    from app.plugins.registry import registry
+
+    entry = registry.get("parser", fmt)
+    if not entry or not entry.enabled:
+        return {}
+    try:
+        parsed = entry.instance.parse(content, fmt)
+    except Exception:
+        return {}
+    if not parsed:
+        return {}
+    extra = parsed[0].extra_meta or {}
+    return {
+        k: extra[k] for k in ("references", "fofa_syntax", "shodan_syntax", "publicwww_syntax") if k in extra
+    }
 
 
 def _get_poc_or_404(db: Session, poc_id: int) -> Poc:
@@ -205,22 +229,33 @@ def create_poc(db: Session, data: PocCreate, user_id: int | None = None, ip: str
         meta["cnvd_ids"] = data.cnvd_ids
         poc.extra_meta = meta
 
-    # 存储参考链接到 extra_meta
-    if data.references:
+    # 存储参考链接到 extra_meta（显式字段优先，其次从内容推导）
+    derived = _derive_meta_from_content(data.content, data.format)
+    refs = data.references or derived.get("references", [])
+    if refs:
         meta = dict(poc.extra_meta or {})
-        meta["references"] = [r.model_dump() for r in data.references]
+        meta["references"] = [r.model_dump() if hasattr(r, "model_dump") else r for r in refs]
         poc.extra_meta = meta
 
     # 存储资产探测 FOFA 语法到 extra_meta
-    if data.fofa_syntax:
+    fofa = data.fofa_syntax or derived.get("fofa_syntax")
+    if fofa:
         meta = dict(poc.extra_meta or {})
-        meta["fofa_syntax"] = data.fofa_syntax
+        meta["fofa_syntax"] = fofa
         poc.extra_meta = meta
 
     # 存储资产探测 Shodan 语法到 extra_meta
-    if data.shodan_syntax:
+    shodan = data.shodan_syntax or derived.get("shodan_syntax")
+    if shodan:
         meta = dict(poc.extra_meta or {})
-        meta["shodan_syntax"] = data.shodan_syntax
+        meta["shodan_syntax"] = shodan
+        poc.extra_meta = meta
+
+    # 存储资产探测 PublicWWW 语法到 extra_meta
+    publicwww = data.publicwww_syntax or derived.get("publicwww_syntax")
+    if publicwww:
+        meta = dict(poc.extra_meta or {})
+        meta["publicwww_syntax"] = publicwww
         poc.extra_meta = meta
 
     # 关联标签
@@ -366,6 +401,16 @@ def update_poc(
         poc.extra_meta = meta
         changes["after"]["shodan_syntax"] = True
 
+    if "publicwww_syntax" in update_fields:
+        publicwww = update_fields.pop("publicwww_syntax")
+        meta = dict(poc.extra_meta or {})
+        if publicwww:
+            meta["publicwww_syntax"] = publicwww
+        else:
+            meta.pop("publicwww_syntax", None)
+        poc.extra_meta = meta
+        changes["after"]["publicwww_syntax"] = True
+
     if "tag_ids" in update_fields:
         _sync_tag_ids(db, poc, update_fields.pop("tag_ids"))
         changes["after"]["tag_ids"] = True
@@ -384,7 +429,7 @@ def update_poc(
     if "extra_meta" in update_fields:
         incoming = update_fields.pop("extra_meta") or {}
         meta = dict(poc.extra_meta or {})
-        managed = {"references", "cnvd_ids", "fofa_syntax", "shodan_syntax"}
+        managed = {"references", "cnvd_ids", "fofa_syntax", "shodan_syntax", "publicwww_syntax"}
         for k, v in incoming.items():
             if k in managed:
                 continue
@@ -811,8 +856,8 @@ def _build_poc_list_item(poc: Poc) -> dict:
         "version": poc.version,
         "tags": _extract_tags(poc),
         "cve_ids": _extract_cve_ids(poc),
-        "created_at": poc.created_at.isoformat() if poc.created_at else None,
-        "updated_at": poc.updated_at.isoformat() if poc.updated_at else None,
+        "created_at": iso_utc(poc.created_at),
+        "updated_at": iso_utc(poc.updated_at),
     }
 
 
@@ -840,10 +885,11 @@ def _build_poc_detail(poc: Poc) -> dict:
         "references": (poc.extra_meta or {}).get("references", []),
         "fofa_syntax": (poc.extra_meta or {}).get("fofa_syntax"),
         "shodan_syntax": (poc.extra_meta or {}).get("shodan_syntax"),
+        "publicwww_syntax": (poc.extra_meta or {}).get("publicwww_syntax"),
         "categories": _extract_categories(poc),
         "affected_versions": _extract_affected_versions(poc),
         "created_by": poc.created_by,
         "updated_by": poc.updated_by,
-        "created_at": poc.created_at.isoformat() if poc.created_at else None,
-        "updated_at": poc.updated_at.isoformat() if poc.updated_at else None,
+        "created_at": iso_utc(poc.created_at),
+        "updated_at": iso_utc(poc.updated_at),
     }

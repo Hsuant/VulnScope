@@ -129,7 +129,7 @@
         v-model:current-page="page"
         v-model:page-size="pageSize"
         :total="total"
-        :page-sizes="[20, 50, 100]"
+        :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next"
         @current-change="loadData"
         @size-change="loadData"
@@ -167,15 +167,16 @@
 
       <div v-loading="drawerLoading" class="drawer-body">
         <template v-if="selectedPoc">
-          <!-- 危险等级 + CVE -->
-          <div class="info-row">
-            <SeverityBadge :severity="selectedPoc.severity" />
-            <span class="cve-text">{{ cveText }}</span>
-          </div>
-          <!-- 来源 -->
-          <div class="source-row">
-            <span class="meta-label">来源</span>
-            <span>{{ SOURCE_MAP[selectedPoc.source] || selectedPoc.source }}</span>
+          <!-- 概要卡片：等级 / CVE / 来源 -->
+          <div class="summary-card">
+            <div class="summary-top">
+              <SeverityBadge :severity="selectedPoc.severity" />
+              <span class="source-chip">{{ SOURCE_MAP[selectedPoc.source] || selectedPoc.source }}</span>
+            </div>
+            <div class="summary-cve">
+              <span class="meta-label">CVE</span>
+              <span class="cve-text">{{ cveText }}</span>
+            </div>
           </div>
 
           <!-- 简介 -->
@@ -194,10 +195,39 @@
           <div class="section">
             <div class="section-label">POC / EXP</div>
             <div v-if="previewPacket" class="packet-wrap">
+              <div class="packet-toolbar">
+                <span class="packet-lang">raw</span>
+                <el-button size="small" text class="packet-copy" :icon="CopyDocument" @click="copyPacket">复制</el-button>
+              </div>
               <pre class="packet-block"><code>{{ previewPacket }}</code></pre>
-              <el-button size="small" text class="packet-copy" @click="copyPacket">复制</el-button>
             </div>
             <div v-else class="section-content">暂无可解析数据包</div>
+          </div>
+
+          <!-- 参考链接 -->
+          <div class="section">
+            <div class="section-label">
+              参考链接
+              <span v-if="selectedPoc.references?.length" class="count-badge">{{ selectedPoc.references.length }}</span>
+            </div>
+            <div v-if="selectedPoc.references?.length" class="ref-list">
+              <a
+                v-for="(ref, i) in selectedPoc.references" :key="i"
+                :href="ref.url" target="_blank" rel="noopener noreferrer"
+                class="ref-link"
+              >
+                <el-icon class="ref-icon"><Link /></el-icon>
+                <span class="ref-text">{{ ref.label || ref.url }}</span>
+              </a>
+            </div>
+            <div v-else class="section-content">暂无参考链接</div>
+          </div>
+
+          <!-- 底部操作 -->
+          <div class="drawer-footer">
+            <el-button type="primary" plain class="footer-btn" @click="goToDetail(selectedPoc.id)">
+              查看完整详情
+            </el-button>
           </div>
         </template>
         <div v-else class="drawer-empty">暂无数据</div>
@@ -234,7 +264,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown, Link, CopyDocument } from '@element-plus/icons-vue'
 import { listPocs, getPoc, deletePoc, changePocStatus } from '@/api/poc'
 import { exportPocs } from '@/api/import-export'
 import { usePermission } from '@/composables/usePermission'
@@ -281,6 +311,7 @@ const searchSyntaxes = computed(() => {
   const list: { key: string; label: string; value: string }[] = []
   if (poc.fofa_syntax) list.push({ key: 'fofa', label: 'FOFA', value: poc.fofa_syntax })
   if (poc.shodan_syntax) list.push({ key: 'shodan', label: 'Shodan', value: poc.shodan_syntax })
+  if (poc.publicwww_syntax) list.push({ key: 'publicwww', label: 'PublicWWW', value: poc.publicwww_syntax })
   return list
 })
 
@@ -350,30 +381,33 @@ function extractPath(poc: PocDetail): string {
 
 function extractPacket(poc: PocDetail): string {
   const content = poc.content || ''
-  try {
-    if (poc.format === 'nuclei') {
+  const lines = content.split('\n')
+
+  // 1. 优先提取 raw 块 —— 最忠实于协议原文（含空行与 body）
+  const rawBlocks = extractRawBlocks(lines)
+  if (rawBlocks.length) return rawBlocks.join('\n\n')
+
+  // 2. 无 raw 时，尝试 nuclei 结构化解析再重建
+  if (poc.format === 'nuclei') {
+    try {
       const yaml = loadYaml(content)
       if (yaml) {
         const reqs = yaml.requests || yaml.http || []
-        if (reqs.length) {
-          return reconstructNucleiRequest(reqs[0])
+        if (reqs?.length) {
+          const req = reqs[0]
+          if (req?.raw) return Array.isArray(req.raw) ? req.raw.join('\n') : String(req.raw)
+          return reconstructNucleiRequest(req)
         }
       }
-    }
-  } catch { /* ignore parse errors */ }
+    } catch { /* ignore parse errors */ }
+  }
 
-  // 通用回退：提取代码中的数据包部分
-  const lines = content.split('\n')
-  // 尝试提取 raw 块（nuclei raw 请求）
-  const rawBlocks = extractRawBlocks(lines)
-  if (rawBlocks.length) return rawBlocks.join('\n')
-
-  // 提取 pocsuite3 的 requests 调用
+  // 3. 提取 pocsuite3 的 requests 调用
   const pocsuiteMatch = content.match(/requests\.(?:get|post|put|delete)\s*\([^)]+\)/i)
   if (pocsuiteMatch) return pocsuiteMatch[0]
 
-  // 返回内容的前 40 行作为数据包预览
-  return lines.slice(0, 40).join('\n')
+  // 4. 回退：返回内容前 80 行作为数据包预览
+  return lines.slice(0, 80).join('\n')
 }
 
 function loadYaml(content: string): any {
@@ -446,30 +480,102 @@ function reconstructNucleiRequest(req: any): string {
   return packet
 }
 
+// 提取 nuclei / yaml 中的 raw 数据包块，忠实保留空行（HTTP header/body 分隔）与相对缩进。
+// 支持四种写法：raw: |  /  raw:\n  - |  /  raw: "..."  /  raw: ["...","..."]
 function extractRawBlocks(lines: string[]): string[] {
   const blocks: string[] = []
-  let inRaw = false
-  let current: string[] = []
-  for (const line of lines) {
-    if (/^\s*raw\s*[|>]\s*$/.test(line)) {
-      inRaw = true
-      current = []
+  const n = lines.length
+  let i = 0
+  while (i < n) {
+    const m = lines[i].match(/^( *)(?:- )?raw\s*:\s*(.*)$/)
+    if (!m) { i++; continue }
+    const keyIndent = m[1].length
+    const inline = m[2].trim()
+    i++
+
+    // raw: |- / raw: > / raw: |-2  （block scalar 直接跟在 key 后）
+    if (/^[|>][-+]?[0-9]*$/.test(inline)) {
+      const block = collectBlockScalar(lines, i, keyIndent)
+      if (block) { blocks.push(block.content); i = block.nextIndex; continue }
+    }
+
+    // raw: "GET / HTTP/1.1\r\nHost: ...\r\n\r\nbody"  /  raw: ["...", "..."]
+    if (inline.startsWith('"') || inline.startsWith("'") || inline.startsWith('[')) {
+      const text = unescapeYamlString(inline)
+      if (text) { blocks.push(text); continue }
+    }
+
+    // raw:\n  - |  \n    <content>   或   raw:\n  - "..."
+    // 跳过中间空行，定位第一个列表项
+    while (i < n && lines[i].trim() === '') i++
+    if (i >= n) continue
+    const itemMatch = lines[i].match(/^(\s*)-\s+(.*)$/)
+    if (!itemMatch) continue
+    const itemIndent = itemMatch[1].length
+    const itemVal = itemMatch[2].trim()
+    i++
+    if (/^[|>][-+]?[0-9]*$/.test(itemVal)) {
+      const block = collectBlockScalar(lines, i, itemIndent)
+      if (block) { blocks.push(block.content); i = block.nextIndex; continue }
+    }
+    if (itemVal) { blocks.push(unescapeYamlString(itemVal)); continue }
+  }
+  return blocks
+}
+
+// 从 start 起收集一个 block scalar：以第一条内容行的缩进为基准，
+// 保留其中空行（HTTP 分隔符），直到遇到缩进回落到 parentIndent 及以下的非空行。
+function collectBlockScalar(
+  lines: string[],
+  start: number,
+  parentIndent: number,
+): { content: string; nextIndex: number } | null {
+  const n = lines.length
+  let i = start
+  while (i < n && lines[i].trim() === '') i++
+  if (i >= n) return null
+  const first = lines[i]
+  const baseIndent = first.length - first.trimStart().length
+  if (baseIndent <= parentIndent) return null
+  const collected: string[] = []
+  while (i < n) {
+    const l = lines[i]
+    if (l.trim() === '') {
+      collected.push('')
+      i++
       continue
     }
-    if (inRaw) {
-      if (/^\s*$/.test(line) || /^\w/.test(line)) {
-        if (current.length) {
-          blocks.push(current.join('\n'))
-          current = []
-        }
-        inRaw = false
-      } else {
-        current.push(line.replace(/^\s{2,}/, ''))
-      }
-    }
+    const indent = l.length - l.trimStart().length
+    if (indent <= parentIndent) break // 缩进回落到父级，block 结束
+    collected.push(l.slice(baseIndent))
+    i++
   }
-  if (current.length) blocks.push(current.join('\n'))
-  return blocks
+  while (collected.length && collected[collected.length - 1] === '') collected.pop()
+  if (!collected.length) return null
+  return { content: collected.join('\n'), nextIndex: i }
+}
+
+// 还原 YAML 字符串字面量：处理双引号转义、单引号 '' 转义、flow 数组。
+function unescapeYamlString(s: string): string {
+  let t = s.trim()
+  if (t.startsWith('[')) {
+    try {
+      const arr = JSON.parse(t)
+      if (Array.isArray(arr)) return arr.map(x => String(x)).join('\n')
+    } catch { /* fallthrough */ }
+  }
+  const q = t[0]
+  if (q !== '"' && q !== "'") return t
+  if (t[t.length - 1] === q) t = t.slice(1, -1)
+  if (q === '"') {
+    return t
+      .replace(/\\r\\n/g, '\r\n')
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+  }
+  return t.replace(/''/g, "'")
 }
 
 // ── 事件处理 ──────────────────────────────────────────────────
@@ -788,6 +894,8 @@ onMounted(loadData)
 
 .drawer-body {
   padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .drawer-empty {
@@ -798,30 +906,46 @@ onMounted(loadData)
   color: $text-disabled;
 }
 
-// ── 信息行 ────────────────────────────────────────────────────
-.info-row {
+// ── 概要卡片 ──────────────────────────────────────────────────
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-md $spacing-lg;
+  margin-bottom: $spacing-lg;
+  background: var(--vs-bg-secondary);
+  border: 1px solid var(--vs-border-subtle);
+  border-radius: $radius-lg;
+}
+
+.summary-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: $spacing-sm;
-  margin-bottom: $spacing-sm;
+}
+
+.source-chip {
+  font-size: $font-caption;
+  color: var(--vs-text-secondary);
+  background: var(--vs-bg-tertiary);
+  border: 1px solid var(--vs-border-subtle);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.summary-cve {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-xs;
 }
 
 .cve-text {
   font-size: $font-body;
   color: $text-primary;
-  font-weight: 500;
+  font-weight: 600;
   font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
-}
-
-.source-row {
-  font-size: $font-body;
-  color: $text-secondary;
-  margin-bottom: $spacing-lg;
-
-  .meta-label {
-    color: $text-disabled;
-    margin-right: $spacing-xs;
-  }
 }
 
 // ── 区块 ──────────────────────────────────────────────────────
@@ -830,12 +954,29 @@ onMounted(loadData)
 }
 
 .section-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
   font-size: $font-caption;
   color: $text-secondary;
   font-weight: 600;
   margin-bottom: $spacing-xs;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--vs-text-inverse);
+  background: var(--vs-accent);
+  border-radius: 8px;
 }
 
 .section-content {
@@ -857,19 +998,76 @@ onMounted(loadData)
     font-size: $font-caption;
     color: var(--vs-accent);
     background: var(--vs-bg-tertiary);
+    border: 1px solid var(--vs-border-subtle);
     padding: $spacing-xs $spacing-sm;
     border-radius: $radius-sm;
     display: inline-block;
+    max-width: 100%;
+  }
+}
+
+.ref-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.ref-link {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  color: var(--vs-text-secondary);
+  font-size: $font-caption;
+  background: var(--vs-bg-secondary);
+  border: 1px solid var(--vs-border-subtle);
+  border-radius: $radius-sm;
+  transition: all $transition-fast;
+
+  .ref-icon {
+    flex-shrink: 0;
+    color: var(--vs-accent);
+    font-size: 14px;
+  }
+
+  .ref-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover {
+    color: var(--vs-accent);
+    background: rgba(var(--vs-accent-rgb), 0.06);
+    border-color: rgba(var(--vs-accent-rgb), 0.25);
+
+    .ref-text { text-decoration: underline; }
   }
 }
 
 // ── 数据包 ────────────────────────────────────────────────────
 .packet-wrap {
-  position: relative;
-  background: $bg-tertiary;
-  border: 1px solid $border-color;
+  background: var(--vs-bg-tertiary);
+  border: 1px solid var(--vs-border-color);
   border-radius: $radius-md;
   overflow: hidden;
+}
+
+.packet-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px $spacing-xs 2px $spacing-sm;
+  background: var(--vs-bg-secondary);
+  border-bottom: 1px solid var(--vs-border-subtle);
+}
+
+.packet-lang {
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+  color: var(--vs-text-disabled);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .packet-block {
@@ -881,12 +1079,18 @@ onMounted(loadData)
   color: $text-primary;
   white-space: pre;
   overflow-x: auto;
-  max-height: 360px;
+  max-height: 320px;
 }
 
-.packet-copy {
-  position: absolute;
-  top: $spacing-xs;
-  right: $spacing-xs;
+// ── 底部操作 ──────────────────────────────────────────────────
+.drawer-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: $spacing-md;
+  border-top: 1px solid var(--vs-border-subtle);
+
+  .footer-btn {
+    width: 100%;
+  }
 }
 </style>

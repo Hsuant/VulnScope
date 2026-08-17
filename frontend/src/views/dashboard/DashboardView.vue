@@ -197,7 +197,7 @@ const STATUS_KEY: Record<string, ChartColorKey> = { active: 'active', draft: 'in
 const TAG_NS_COLORS: ChartColorKey[] = ['accent', 'active', 'archived', 'medium', 'low', 'high', 'critical', 'info']
 
 const ASSET_SEARCH_LABEL: Record<string, string> = {
-  fofa: 'FOFA', shodan: 'Shodan',
+  fofa: 'FOFA', shodan: 'Shodan', publicwww: 'PublicWWW',
 }
 const ACTION_KEY: Record<string, ChartColorKey> = {
   'poc.created': 'active',

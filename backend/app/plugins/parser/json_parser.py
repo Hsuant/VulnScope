@@ -83,6 +83,29 @@ class JsonParser(PocParser):
         elif isinstance(tags_raw, str):
             tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
+        from app.plugins.base import normalize_references
+
+        references_norm = normalize_references(item.get("references", []) or [])
+        extra_meta: dict[str, Any] = {"original_format": "json"}
+        if references_norm:
+            extra_meta["references"] = references_norm
+
+        # 解析资产探测语法：metadata 块（构建器写入 fofa-query / shodan-query / publicwww-query），
+        # 同时兼容顶层 fofa_syntax / shodan_syntax / publicwww_syntax 等键名变体
+        meta = item.get("metadata") or {}
+        if isinstance(meta, dict):
+            for src_key, dst_key in (("fofa-query", "fofa_syntax"), ("shodan-query", "shodan_syntax")):
+                if meta.get(src_key):
+                    extra_meta[dst_key] = str(meta[src_key]).strip()
+            pub = meta.get("publicwww-query") or meta.get("publicwww") or meta.get("publicwww_syntax")
+            if pub:
+                extra_meta["publicwww_syntax"] = str(pub).strip()
+        for dst_key in ("fofa_syntax", "shodan_syntax", "publicwww_syntax"):
+            if dst_key in extra_meta:
+                continue
+            if item.get(dst_key):
+                extra_meta[dst_key] = str(item[dst_key]).strip()
+
         return NormalizedPoc(
             name=name,
             title=item.get("title") or None,
@@ -94,8 +117,8 @@ class JsonParser(PocParser):
             format="nuclei" if content else "json",
             cve_ids=cve_ids,
             tags=tags,
-            references=item.get("references", []) or [],
-            extra_meta={"original_format": "json"},
+            references=[r["url"] for r in references_norm if r.get("url")],
+            extra_meta=extra_meta,
         )
 
     def _build_nuclei_template(self, item: dict[str, Any]) -> str:

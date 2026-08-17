@@ -365,6 +365,7 @@ function resetImport() {
 
 .poc-import-view {
   max-width: 1100px;
+  margin: 0 auto;
   height: 100%;
 }
 
@@ -373,11 +374,13 @@ function resetImport() {
   grid-template-columns: 1fr 1fr;
   gap: $spacing-xl;
   height: calc(100vh - 180px);
-  align-items: start;
+  align-items: stretch;
 }
 
 // ── 左侧面板 ──────────────────────────────────────────────────
 .import-panel {
+  display: flex;
+  flex-direction: column;
   background: $bg-secondary;
   border: 1px solid $border-color;
   border-radius: $radius-md;
@@ -389,6 +392,7 @@ function resetImport() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border-bottom: 1px solid $border-color;
+  flex-shrink: 0;
 }
 
 .mode-tab {
@@ -430,12 +434,20 @@ function resetImport() {
 
 // ── 模式内容 ───────────────────────────────────────────────────
 .mode-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
   padding: $spacing-xl;
+  overflow-y: auto;
 }
 
 // ── 上传区域 ───────────────────────────────────────────────────
 .upload-area {
   width: 100%;
+  flex-shrink: 0;
 
   :deep(.el-upload-dragger) {
     width: 100%;
@@ -528,6 +540,9 @@ function resetImport() {
   flex-direction: column;
   gap: 8px;
   margin-top: $spacing-lg;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .file-card {
@@ -608,17 +623,27 @@ function resetImport() {
 
 // ── 粘贴区域 ───────────────────────────────────────────────────
 .paste-area {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .paste-textarea {
+  flex: 1;
+  min-height: 0;
+
+  :deep(.el-textarea) {
+    height: 100%;
+  }
+
   :deep(textarea) {
+    height: 100%;
+    min-height: 240px;
     font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 13px;
     line-height: 1.6;
-    min-height: 240px;
     background: $bg-tertiary;
     border-color: $border-color;
 
@@ -635,6 +660,7 @@ function resetImport() {
 }
 
 .paste-hint {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -644,6 +670,7 @@ function resetImport() {
 
 // ── 配置栏 ─────────────────────────────────────────────────────
 .config-bar {
+  flex-shrink: 0;
   display: flex;
   gap: $spacing-md;
   padding: $spacing-lg $spacing-xl;
@@ -669,6 +696,7 @@ function resetImport() {
 
 // ── 导入按钮 ───────────────────────────────────────────────────
 .import-action-btn {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -717,18 +745,17 @@ function resetImport() {
 
 // ── 右侧结果面板 ──────────────────────────────────────────────
 .result-panel {
+  display: flex;
+  flex-direction: column;
   background: $bg-secondary;
   border: 1px solid $border-color;
   border-radius: $radius-md;
   padding: $spacing-xl;
-  position: sticky;
-  top: 0;
+  overflow-y: auto;
 
   &.empty {
-    display: flex;
-    align-items: center;
     justify-content: center;
-    min-height: 400px;
+    align-items: center;
   }
 }
 

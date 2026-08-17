@@ -99,6 +99,7 @@ class PocCreate(BaseModel):
     references: list[ReferenceItem] = Field(default_factory=list, description="参考链接列表")
     fofa_syntax: str | None = Field(default=None, max_length=1024, description="资产探测 FOFA 语法")
     shodan_syntax: str | None = Field(default=None, max_length=1024, description="资产探测 Shodan 语法")
+    publicwww_syntax: str | None = Field(default=None, max_length=1024, description="资产探测 PublicWWW 语法")
     tag_ids: list[int] = Field(default_factory=list, description="关联标签 ID 列表")
     category_ids: list[int] = Field(default_factory=list, description="关联分类 ID 列表")
     affected_versions: list[AffectedVersion] = Field(default_factory=list, description="版本影响范围列表")
@@ -153,6 +154,7 @@ class PocUpdate(BaseModel):
     references: list[ReferenceItem] | None = None
     fofa_syntax: str | None = Field(default=None, max_length=1024, description="资产探测 FOFA 语法")
     shodan_syntax: str | None = Field(default=None, max_length=1024, description="资产探测 Shodan 语法")
+    publicwww_syntax: str | None = Field(default=None, max_length=1024, description="资产探测 PublicWWW 语法")
     tag_ids: list[int] | None = None
     category_ids: list[int] | None = None
     affected_versions: list[AffectedVersion] | None = None
@@ -262,6 +264,7 @@ class PocResponse(BaseModel):
     references: list[ReferenceItem] = []
     fofa_syntax: str | None = None
     shodan_syntax: str | None = None
+    publicwww_syntax: str | None = None
     categories: list[CategoryBrief] = []
     affected_versions: list[AffectedVersion] = []
     created_by: int | None = None

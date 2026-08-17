@@ -50,7 +50,7 @@
 
         <div class="form-section">
           <h3 class="section-title">关联信息</h3>
-          <el-form label-width="80px" label-position="left">
+          <el-form label-width="110px" label-position="left">
             <el-form-item label="CVE 编号">
               <el-select
                 v-model="form.cve_ids"
@@ -77,17 +77,24 @@
                 <el-option v-for="cnvd in form.cnvd_ids" :key="cnvd" :label="cnvd" :value="cnvd" />
               </el-select>
             </el-form-item>
-            <el-form-item label="FOFA 语法">
+            <el-form-item label="FOFA">
               <el-input
                 v-model="form.fofa_syntax"
                 placeholder="资产探测 FOFA 语法，如 app=&quot;Apache-Struts2&quot;"
                 clearable
               />
             </el-form-item>
-            <el-form-item label="Shodan 语法">
+            <el-form-item label="Shodan">
               <el-input
                 v-model="form.shodan_syntax"
                 placeholder="资产探测 Shodan 语法，如 product:&quot;Apache Struts&quot;"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="PublicWWW">
+              <el-input
+                v-model="form.publicwww_syntax"
+                placeholder="资产探测 PublicWWW 语法，如 title=&quot;Apache Struts&quot;"
                 clearable
               />
             </el-form-item>
@@ -285,7 +292,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Check, Refresh, Download, InfoFilled, Delete, Plus, Link, Loading } from '@element-plus/icons-vue'
@@ -299,7 +306,7 @@ import type { TagItem } from '@/types/tag'
 import type { AffectedVersion, Reference } from '@/types/poc'
 import {
   createEmptyState, generateContent, parseContent, canBuild as canBuildFormat,
-  readBuilderMeta, migrateBuilderState, type BuilderState,
+  readBuilderMeta, migrateBuilderState, extractContentMeta, type BuilderState,
 } from '@/utils/pocBuilder'
 
 const route = useRoute()
@@ -317,6 +324,14 @@ const allTags = ref<TagItem[]>([])
 const builderState = reactive<BuilderState>(createEmptyState())
 const editMode = ref<'builder' | 'source'>('builder')
 const sourceDirty = ref(false) // 源码被手改过，切回 builder 时需重新解析
+// 解析源码 → builderState 期间为 true，抑制 builderState watch 自动重新生成 content。
+// 否则用户粘贴的完整源码（含 builder 不建模的 reference / fofa-query / shodan-query / publicwww-query /
+// impact / remediation / cvss 等字段）会被 generateContent 覆盖成丢失这些字段的 YAML。
+const parsingContent = ref(false)
+// builderState / 结构化表单字段自上次从源码解析/加载后是否被用户改动过。
+// 仅在 true 时保存才用 generateContent 重新生成 content，避免「源码 → 切到 builder 查看后
+// 直接保存」这种未编辑场景把完整源码覆盖成丢失字段的 YAML。
+const builderDirty = ref(false)
 
 const form = reactive({
   name: '',
@@ -334,6 +349,7 @@ const form = reactive({
   references: [] as (Reference & { _verifying?: boolean; _verified?: boolean })[],
   fofa_syntax: '',
   shodan_syntax: '',
+  publicwww_syntax: '',
   tag_ids: [] as number[],
   affected_versions: [] as AffectedVersion[],
   extra_meta: {} as Record<string, any>,
@@ -452,6 +468,7 @@ async function loadData() {
     form.references = (poc.references || []).map(r => ({ ...r }))
     form.fofa_syntax = poc.fofa_syntax || ''
     form.shodan_syntax = poc.shodan_syntax || ''
+    form.publicwww_syntax = poc.publicwww_syntax || ''
     form.tag_ids = poc.tags?.map(t => t.id) || []
     form.affected_versions = (poc.affected_versions || []).map(v => ({ ...v }))
     form.extra_meta = poc.extra_meta || {}
@@ -462,8 +479,13 @@ async function loadData() {
     if (saved) {
       Object.assign(builderState, migrateBuilderState(saved))
     } else if (canBuild.value && form.content) {
+      // 编辑导入型 POC（无 saved builder 状态）：解析源码进 builderState 供展示，
+      // 但抑制随后的自动重生成，避免覆盖导入时存储的完整 content。
+      parsingContent.value = true
       Object.assign(builderState, migrateBuilderState(parseContent(form.content, form.format)))
+      nextTick(() => { parsingContent.value = false })
     }
+    builderDirty.value = false
     editMode.value = canBuild.value ? 'builder' : 'source'
   } catch {
     router.push('/pocs')
@@ -488,6 +510,7 @@ function buildContext() {
     references: form.references.length ? form.references.map((r) => ({ url: r.url, label: r.label })) : undefined,
     fofaSyntax: form.fofa_syntax || undefined,
     shodanSyntax: form.shodan_syntax || undefined,
+    publicwwwSyntax: form.publicwww_syntax || undefined,
     affectedVersions: form.affected_versions.length ? form.affected_versions : undefined,
     state: builderState,
   }
@@ -505,11 +528,34 @@ function markSourceDirty() {
   sourceDirty.value = true
 }
 
+// 把源码 content 解析进 builderState，并同步 info 级元数据到表单字段。
+// 字段映射严格对应 Nuclei 官方键（唯一映射，由 extractContentMeta 实现）：
+//   info.reference              -> form.references
+//   info.metadata.fofa-query    -> form.fofa_syntax
+//   info.metadata.shodan-query  -> form.shodan_syntax
+//   info.metadata.publicwww-query -> form.publicwww_syntax
+// 仅在表单字段为空时回填，避免覆盖用户已手动填写的值。
+// 调用方需先用 parsingContent 抑制随后的 builderState watch 重新生成 content。
+function syncFromSourceContent(content: string, fmt: string) {
+  Object.assign(builderState, parseContent(content, fmt))
+  const meta = extractContentMeta(content, fmt)
+  if (!form.references.length && meta.references.length) {
+    form.references = meta.references.map((r) => ({ url: r.url, label: r.label ?? '' }))
+  }
+  if (!form.fofa_syntax && meta.fofaSyntax) form.fofa_syntax = meta.fofaSyntax
+  if (!form.shodan_syntax && meta.shodanSyntax) form.shodan_syntax = meta.shodanSyntax
+  if (!form.publicwww_syntax && meta.publicwwwSyntax) form.publicwww_syntax = meta.publicwwwSyntax
+  // 刚从源码解析而来，视为未编辑：保存时不重新生成 content
+  builderDirty.value = false
+}
+
 // 切到表单构建模式时，若源码被改过则解析回填
 watch(editMode, (mode) => {
   if (mode === 'builder' && canBuild.value && sourceDirty.value && form.content) {
-    Object.assign(builderState, parseContent(form.content, form.format))
+    parsingContent.value = true
+    syncFromSourceContent(form.content, form.format)
     sourceDirty.value = false
+    nextTick(() => { parsingContent.value = false })
   }
 })
 
@@ -519,18 +565,23 @@ watch(() => form.format, (fmt) => {
     editMode.value = 'source'
   } else {
     if (editMode.value === 'source' && form.content) {
-      Object.assign(builderState, parseContent(form.content, fmt))
+      parsingContent.value = true
+      syncFromSourceContent(form.content, fmt)
+      nextTick(() => { parsingContent.value = false })
     }
     if (editMode.value !== 'source') editMode.value = 'builder'
   }
 })
 
-// 表单构建模式下，结构字段变化时实时生成 content（保持单一数据源）
+// 表单构建模式下，结构字段变化时实时生成 content（保持单一数据源）。
+// 解析源码期间（parsingContent）跳过，避免覆盖用户粘贴的完整源码。
 watch(
-  () => JSON.stringify({ ...builderState, name: form.name, title: form.title, author: form.author, severity: form.severity, description: form.description, cve_ids: form.cve_ids, tag_ids: form.tag_ids, source: form.source, format: form.format, references: form.references, fofa_syntax: form.fofa_syntax, shodan_syntax: form.shodan_syntax, affected_versions: form.affected_versions }),
+  () => JSON.stringify({ ...builderState, name: form.name, title: form.title, author: form.author, severity: form.severity, description: form.description, cve_ids: form.cve_ids, tag_ids: form.tag_ids, source: form.source, format: form.format, references: form.references, fofa_syntax: form.fofa_syntax, shodan_syntax: form.shodan_syntax, publicwww_syntax: form.publicwww_syntax, affected_versions: form.affected_versions }),
   () => {
+    if (parsingContent.value) return
     if (canBuild.value && editMode.value === 'builder') {
       form.content = generateContent(buildContext())
+      builderDirty.value = true
       sourceDirty.value = false
     }
   },
@@ -550,8 +601,9 @@ async function handleSave() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  // 构建模式下，保存前确保 content 已由结构字段生成
-  if (canBuild.value && editMode.value === 'builder') {
+  // 构建模式下，仅当用户实际改动过结构字段时才重新生成 content；
+  // 否则保留源码原文（含 builder 不建模的字段），避免保存时把完整源码覆盖成残缺 YAML
+  if (canBuild.value && editMode.value === 'builder' && builderDirty.value) {
     form.content = generateContent(buildContext())
   }
 
@@ -612,6 +664,7 @@ async function handleSave() {
         references: form.references.length ? form.references.map(r => ({ url: r.url, label: r.label })) : undefined,
         fofa_syntax: form.fofa_syntax,
         shodan_syntax: form.shodan_syntax,
+        publicwww_syntax: form.publicwww_syntax,
         tag_ids: form.tag_ids,
         affected_versions: form.affected_versions.length ? form.affected_versions : undefined,
         extra_meta: extraMeta,
@@ -635,6 +688,7 @@ async function handleSave() {
         references: form.references.length ? form.references.map(r => ({ url: r.url, label: r.label })) : undefined,
         fofa_syntax: form.fofa_syntax,
         shodan_syntax: form.shodan_syntax,
+        publicwww_syntax: form.publicwww_syntax,
         tag_ids: form.tag_ids,
         affected_versions: form.affected_versions.length ? form.affected_versions : undefined,
         extra_meta: extraMeta,

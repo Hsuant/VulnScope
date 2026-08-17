@@ -67,6 +67,28 @@ class NormalizedPoc(BaseModel):
         return errors
 
 
+def normalize_references(raw: Any) -> list[dict[str, Any]]:
+    """归一化参考链接为 [{url, label}]，供各解析器写入 extra_meta。
+
+    单个 str / str 列表 / 含 url 键的 dict 列表。
+    """
+    if not raw:
+        return []
+    if isinstance(raw, str):
+        raw = [raw]
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict):
+            url = str(item.get("url", "")).strip()
+            if url:
+                out.append({"url": url, "label": item.get("label")})
+        else:
+            url = str(item).strip()
+            if url:
+                out.append({"url": url, "label": None})
+    return out
+
+
 class PocSource(ABC):
     """POC 来源插件：手动录入 / AI 生成 / 爬取统一走此接口。"""
 

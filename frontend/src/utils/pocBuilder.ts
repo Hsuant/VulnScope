@@ -226,11 +226,12 @@ export interface BuildContext {
   references?: Reference[]
   fofaSyntax?: string
   shodanSyntax?: string
+  publicwwwSyntax?: string
   affectedVersions?: AffectedVersion[]
   state: BuilderState
 }
 
-// ── 元数据拼装：把参考链接 / FOFA / Shodan / 受影响版本 / 来源 / 格式汇入 info ──
+// ── 元数据拼装：把参考链接 / FOFA / Shodan / PublicWWW / 受影响版本 / 来源 / 格式汇入 info ──
 
 function buildReferenceList(references?: Reference[]): string[] | undefined {
   if (!references?.length) return undefined
@@ -253,6 +254,7 @@ function buildMetadata(ctx: BuildContext): Record<string, unknown> | undefined {
   const meta: Record<string, unknown> = {}
   if (ctx.fofaSyntax) meta['fofa-query'] = ctx.fofaSyntax
   if (ctx.shodanSyntax) meta['shodan-query'] = ctx.shodanSyntax
+  if (ctx.publicwwwSyntax) meta['publicwww-query'] = ctx.publicwwwSyntax
   if (ctx.source) meta.source = ctx.source
   if (ctx.format) meta.format = ctx.format
   const affected = buildAffectedList(ctx.affectedVersions)
@@ -750,6 +752,109 @@ export function parseJson(content: string): BuilderState {
 export function parseContent(content: string, format: string): BuilderState {
   if (format === 'json') return parseJson(content)
   return parseNucleiYaml(content)
+}
+
+// ── 源码 info 级元数据提取（唯一键映射，不做多种 fallback）────────
+
+export interface ContentMeta {
+  references: Reference[]
+  fofaSyntax: string
+  shodanSyntax: string
+  publicwwwSyntax: string
+}
+
+const EMPTY_META: ContentMeta = { references: [], fofaSyntax: '', shodanSyntax: '', publicwwwSyntax: '' }
+
+/** 从多个对象（按优先级）中取第一个非空字符串字段值，用于兼容 publicwww-query / publicwww 等键名变体。 */
+function firstMetaString(...candidates: Array<{ obj: Record<string, unknown>; keys: string[] }>): string {
+  for (const { obj, keys } of candidates) {
+    for (const k of keys) {
+      const v = obj[k]
+      if (v != null && String(v).trim() !== '') return String(v)
+    }
+  }
+  return ''
+}
+
+/** 把单个参考链接条目归一化为 {url, label}（仅接受字符串 / 含 url 的对象）。 */
+function toReference(item: unknown): Reference | null {
+  if (typeof item === 'string') {
+    const url = item.trim()
+    return url ? { url, label: null } : null
+  }
+  if (item && typeof item === 'object') {
+    const url = String((item as Record<string, unknown>).url ?? '').trim()
+    return url ? { url, label: ((item as Record<string, unknown>).label as string | null) ?? null } : null
+  }
+  return null
+}
+
+/**
+ * 从 POC 源码内容提取 info 级元数据（参考链接 / FOFA / Shodan / PublicWWW）。
+ *
+ * 字段映射严格对应 Nuclei 官方模板键（唯一映射，不做多种解析可能）：
+ *   info.reference             (string[])          -> references
+ *   info.metadata.fofa-query   (string)            -> fofaSyntax
+ *   info.metadata.shodan-query (string)            -> shodanSyntax
+ *   info.metadata.publicwww-query / publicwww / publicwww_syntax -> publicwwwSyntax
+ *
+ * JSON 格式取顶层 references / fofa_syntax / shodan_syntax，publicwww 再兼容
+ * metadata.publicwww-query / publicwww / publicwww_syntax 与顶层各变体。
+ * 用于源码 → 表单构建切换时把上述字段同步回表单，避免 builder 重新生成
+ * content 时丢失这些 builder 不建模的字段。
+ */
+export function extractContentMeta(content: string, format: string): ContentMeta {
+  if (!content) return EMPTY_META
+  if (format === 'json') {
+    let obj: Record<string, unknown>
+    try {
+      obj = JSON.parse(content)
+    } catch {
+      return EMPTY_META
+    }
+    const raw = obj.references
+    const refs: Reference[] = Array.isArray(raw)
+      ? raw.map(toReference).filter((r): r is Reference => r !== null)
+      : (typeof raw === 'string' ? (toReference(raw) ? [toReference(raw) as Reference] : []) : [])
+    const jMeta = (obj.metadata && typeof obj.metadata === 'object')
+      ? obj.metadata as Record<string, unknown>
+      : {}
+    return {
+      references: refs,
+      fofaSyntax: obj.fofa_syntax != null ? String(obj.fofa_syntax) : '',
+      shodanSyntax: obj.shodan_syntax != null ? String(obj.shodan_syntax) : '',
+      publicwwwSyntax: firstMetaString(
+        { obj: jMeta, keys: ['publicwww-query', 'publicwww', 'publicwww_syntax'] },
+        { obj, keys: ['publicwww_syntax', 'publicwww-query', 'publicwww'] },
+      ),
+    }
+  }
+  // nuclei：唯一对应 info.reference / info.metadata.fofa-query / shodan-query / publicwww-query
+  let obj: Record<string, unknown>
+  try {
+    obj = load(content) as Record<string, unknown>
+  } catch {
+    return EMPTY_META
+  }
+  if (!obj || typeof obj !== 'object') return EMPTY_META
+  const info = obj.info
+  if (!info || typeof info !== 'object') return EMPTY_META
+  const infoRec = info as Record<string, unknown>
+  const meta = (infoRec.metadata && typeof infoRec.metadata === 'object')
+    ? infoRec.metadata as Record<string, unknown>
+    : {}
+  const raw = infoRec.reference
+  const refs: Reference[] = Array.isArray(raw)
+    ? raw.map(toReference).filter((r): r is Reference => r !== null)
+    : (typeof raw === 'string' ? (toReference(raw) ? [toReference(raw) as Reference] : []) : [])
+  return {
+    references: refs,
+    fofaSyntax: meta['fofa-query'] != null ? String(meta['fofa-query']) : '',
+    shodanSyntax: meta['shodan-query'] != null ? String(meta['shodan-query']) : '',
+    publicwwwSyntax: firstMetaString(
+      { obj: meta, keys: ['publicwww-query', 'publicwww', 'publicwww_syntax'] },
+    ),
+  }
 }
 
 export function canBuild(format: string): boolean {

@@ -147,6 +147,25 @@ class NucleiParser(PocParser):
                     extra_meta["unsafe_ack"] = False
                     break
 
+        # 参考链接归一化（与 poc_service 约定一致的 extra_meta.references）
+        from app.plugins.base import normalize_references
+
+        norm_refs = normalize_references(references)
+        if norm_refs:
+            extra_meta["references"] = norm_refs
+
+        # 资产探测语法（nuclei info.metadata.fofa-query / shodan-query / publicwww-query）
+        if metadata:
+            fofa = metadata.get("fofa-query")
+            shodan = metadata.get("shodan-query")
+            publicwww = metadata.get("publicwww-query")
+            if fofa:
+                extra_meta["fofa_syntax"] = str(fofa).strip()
+            if shodan:
+                extra_meta["shodan_syntax"] = str(shodan).strip()
+            if publicwww:
+                extra_meta["publicwww_syntax"] = str(publicwww).strip()
+
         # 构建 POC 内容（使用原始文本，但做规范化）
         content = self._normalize_template(raw_text, doc)
 

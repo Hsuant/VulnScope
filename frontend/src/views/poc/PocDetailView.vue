@@ -105,16 +105,36 @@
               </span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">FOFA 语法</span>
+              <span class="meta-label">FOFA</span>
               <span class="meta-value">
                 <code v-if="poc.fofa_syntax" class="fofa-syntax">{{ poc.fofa_syntax }}</code>
                 <span v-else>-</span>
               </span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Shodan 语法</span>
+              <span class="meta-label">Shodan</span>
               <span class="meta-value">
                 <code v-if="poc.shodan_syntax" class="fofa-syntax">{{ poc.shodan_syntax }}</code>
+                <span v-else>-</span>
+              </span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">PublicWWW</span>
+              <span class="meta-value">
+                <code v-if="poc.publicwww_syntax" class="fofa-syntax">{{ poc.publicwww_syntax }}</code>
+                <span v-else>-</span>
+              </span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">参考链接</span>
+              <span class="meta-value">
+                <template v-if="poc.references?.length">
+                  <a
+                    v-for="(ref, i) in poc.references" :key="i"
+                    :href="ref.url" target="_blank" rel="noopener noreferrer"
+                    class="ref-link"
+                  >{{ ref.label || ref.url }}</a>
+                </template>
                 <span v-else>-</span>
               </span>
             </div>
@@ -387,8 +407,9 @@ onMounted(loadData)
 
 .meta-label {
   color: $text-secondary;
-  width: 72px;
+  width: 96px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .meta-value {
@@ -588,5 +609,15 @@ onMounted(loadData)
 .source-type {
   font-weight: 500;
   color: $text-primary;
+}
+
+.ref-link {
+  display: block;
+  color: $accent;
+  font-size: $font-caption;
+  word-break: break-all;
+  line-height: 1.6;
+  & + & { margin-top: 4px; }
+  &:hover { text-decoration: underline; }
 }
 </style>

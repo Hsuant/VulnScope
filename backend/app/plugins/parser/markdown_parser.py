@@ -79,7 +79,7 @@ class MarkdownParser(PocParser):
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8", errors="replace")
 
-        front, body = self._split_front_matter(raw)
+        front, _ = self._split_front_matter(raw)
         meta: dict[str, Any] = {}
         if front:
             try:
@@ -87,11 +87,10 @@ class MarkdownParser(PocParser):
                 if isinstance(loaded, dict):
                     meta = loaded
             except yaml.YAMLError:
-                # front-matter 解析失败时按无 front-matter 处理，保留原文
-                body = raw
-                front = ""
+                # front-matter 解析失败时按无 front-matter 处理
+                pass
 
-        return [self._build(meta, body or raw)]
+        return [self._build(meta, raw)]
 
     def validate(self, poc: NormalizedPoc) -> list[str]:
         """Markdown 专项校验：仅基础非空 + 长度上限，不套脚本格式约束。"""
@@ -128,12 +127,21 @@ class MarkdownParser(PocParser):
         cve_ids = self._extract_cves(meta)
         tags = self._extract_tags(meta)
         references = self._extract_references(meta)
+        fofa = meta.get("fofa_syntax")
+        shodan = meta.get("shodan_syntax")
+        publicwww = meta.get("publicwww_syntax") or meta.get("publicwww-query") or meta.get("publicwww")
 
-        # 参考链接以结构化形式存入 extra_meta（与 poc_service 约定一致，
-        # 详情页 _build_poc_detail 读取 extra_meta.references）
+        # 结构化元数据存入 extra_meta（与 poc_service 约定一致，
+        # 详情页 _build_poc_detail 读取 extra_meta.references / fofa_syntax / shodan_syntax / publicwww_syntax）
         extra_meta: dict[str, Any] = {}
         if references:
             extra_meta["references"] = references
+        if fofa:
+            extra_meta["fofa_syntax"] = str(fofa).strip()
+        if shodan:
+            extra_meta["shodan_syntax"] = str(shodan).strip()
+        if publicwww:
+            extra_meta["publicwww_syntax"] = str(publicwww).strip()
 
         return NormalizedPoc(
             name=name,
@@ -196,22 +204,14 @@ class MarkdownParser(PocParser):
 
     def _extract_references(self, meta: dict[str, Any]) -> list[dict[str, Any]]:
         """提取参考链接，归一化为 [{url, label}]。"""
-        raw = meta.get("references") or meta.get("reference") or []
+        raw = meta.get("references", [])
         if isinstance(raw, str):
             raw = [raw]
         if not isinstance(raw, list):
             return []
-        out: list[dict[str, Any]] = []
-        for item in raw:
-            if isinstance(item, str):
-                url = item.strip()
-                if url:
-                    out.append({"url": url, "label": None})
-            elif isinstance(item, dict):
-                url = str(item.get("url") or item.get("link") or "").strip()
-                if url:
-                    out.append({"url": url, "label": item.get("label") or item.get("title")})
-        return out
+        from app.plugins.base import normalize_references
+
+        return normalize_references(raw)
 
 
 # 注册实例（registry 自动扫描发现）
