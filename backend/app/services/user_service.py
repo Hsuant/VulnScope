@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AppError, ErrorCode, NotFoundError
 from app.core.security import Role, hash_password
+from app.core.timeutil import iso_utc
 from app.models.user import Role as RoleModel
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
@@ -124,10 +125,8 @@ def _user_to_dict(user: User) -> dict:
         "email": user.email,
         "role": user.role_name,
         "is_active": user.is_active,
-        "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
-        "created_at": (
-            user.created_at.isoformat() if hasattr(user, "created_at") and user.created_at else None
-        ),
+        "last_login_at": iso_utc(user.last_login_at),
+        "created_at": iso_utc(user.created_at) if hasattr(user, "created_at") else None,
     }
 
 

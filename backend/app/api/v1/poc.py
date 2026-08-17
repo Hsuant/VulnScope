@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentUser, DbSession, require_roles
 from app.core.security import Role
+from app.core.timeutil import iso_utc
 from app.models.user import User
 from app.schemas.common import Page, ok
 from app.schemas.poc import (
@@ -274,7 +275,7 @@ def get_poc_versions(
             "version_seq": v.version_seq,
             "content_hash": v.content_hash,
             "changed_by": v.changed_by,
-            "changed_at": v.changed_at.isoformat() if v.changed_at else None,
+            "changed_at": iso_utc(v.changed_at),
         }
         for v in versions
     ]
@@ -310,7 +311,7 @@ def get_poc_source_records(
             "batch_id": r.batch_id,
             "source_url": r.source_url,
             "ref_id": r.ref_id,
-            "fetched_at": r.fetched_at.isoformat() if r.fetched_at else None,
+            "fetched_at": iso_utc(r.fetched_at),
             "extra_meta": r.extra_meta,
         }
         for r in records

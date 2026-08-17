@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.timeutil import iso_utc
 from app.models.poc import AuditLog
 from app.models.user import User
 
@@ -57,7 +58,7 @@ def list_audit_logs(
                 "resource_id": log.resource_id,
                 "detail": log.detail,
                 "ip": log.ip,
-                "created_at": log.created_at.isoformat() if log.created_at else None,
+                "created_at": iso_utc(log.created_at),
             }
         )
 

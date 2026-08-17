@@ -40,6 +40,7 @@ export interface PocDetail extends PocListItem {
   references: Reference[]
   fofa_syntax: string | null
   shodan_syntax: string | null
+  publicwww_syntax: string | null
   created_by: number | null
   updated_by: number | null
 }
@@ -80,6 +81,7 @@ export interface PocCreatePayload {
   references?: Reference[]
   fofa_syntax?: string
   shodan_syntax?: string
+  publicwww_syntax?: string
   tag_ids?: number[]
   category_ids?: number[]
   affected_versions?: AffectedVersion[]
@@ -102,6 +104,7 @@ export interface PocUpdatePayload {
   references?: Reference[]
   fofa_syntax?: string
   shodan_syntax?: string
+  publicwww_syntax?: string
   tag_ids?: number[]
   category_ids?: number[]
   affected_versions?: AffectedVersion[]

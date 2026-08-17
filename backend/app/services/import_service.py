@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.events import DomainEvent, EventTypes, event_bus
+from app.core.timeutil import iso_utc
 from app.models.poc import Poc, PocTag, PocVersion, PocVuln, Tag, Vuln
 from app.plugins.registry import registry
 from app.schemas.poc import PocImportResult
@@ -442,8 +443,8 @@ def _export_json(pocs: list[Any]) -> str:
                 "status": poc.status,
                 "tags": tags,
                 "cve_ids": cve_ids,
-                "created_at": poc.created_at.isoformat() if poc.created_at else None,
-                "updated_at": poc.updated_at.isoformat() if poc.updated_at else None,
+                "created_at": iso_utc(poc.created_at),
+                "updated_at": iso_utc(poc.updated_at),
             }
         )
     return json.dumps(items, ensure_ascii=False, indent=2)

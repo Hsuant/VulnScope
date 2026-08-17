@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
+from app.core.timeutil import iso_utc
 from app.models.poc import PocVuln, Vuln
 
 
@@ -79,7 +80,5 @@ def _vuln_to_dict(vuln: Vuln, poc_count: int = 0) -> dict:
         "cvss": vuln.cvss,
         "severity": vuln.severity,
         "poc_count": poc_count,
-        "created_at": (
-            vuln.created_at.isoformat() if hasattr(vuln, "created_at") and vuln.created_at else None
-        ),
+        "created_at": iso_utc(vuln.created_at) if hasattr(vuln, "created_at") else None,
     }

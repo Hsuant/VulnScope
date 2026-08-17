@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import cache
 from app.core.config import settings
+from app.core.timeutil import iso_utc
 from app.models.poc import AuditLog, Poc, PocTag, PocVuln, Tag, Vuln
 
 # ── 缓存键常量 ──────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ def get_recent_activities(db: Session, limit: int = 10) -> list[dict]:
             ),
             "poc_name": (log.detail or {}).get("poc_name", ""),
             "action": log.action,
-            "timestamp": log.created_at.isoformat() if log.created_at else "",
+            "timestamp": iso_utc(log.created_at) or "",
         }
         for log in rows
     ]
