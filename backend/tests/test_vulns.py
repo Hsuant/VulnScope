@@ -121,7 +121,9 @@ class TestVulnBatchDelete:
         """批量删除时，不存在的 ID 静默跳过，不影响其余删除。"""
         ids = self._setup_vulns(db, 2)
 
-        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": [ids[0], ids[1], 99999]}, headers=auth_header)
+        resp = client.request(
+            "DELETE", "/api/v1/vulns", json={"ids": [ids[0], ids[1], 99999]}, headers=auth_header
+        )
         assert resp.status_code == 200
         assert resp.json()["data"]["deleted_count"] == 2
 
