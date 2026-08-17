@@ -79,10 +79,15 @@ class Vuln(Base, IntPKMixin, TimestampMixin):
     __tablename__ = "vuln"
 
     cve_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    vendor: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     cvss: Mapped[float | None] = mapped_column(nullable=True)
     severity: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    cvss_metrics: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    product: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    remediation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    reference: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     pocs: Mapped[list[PocVuln]] = relationship(back_populates="vuln", cascade="all, delete-orphan")
 
