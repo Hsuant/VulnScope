@@ -32,6 +32,7 @@ class EventTypes(str, Enum):
     POC_STATUS_CHANGED = "poc.status_changed"
     POC_VERSION_CREATED = "poc.version_created"
     BATCH_IMPORTED = "poc.batch_imported"
+    VULN_BATCH_IMPORTED = "vuln.batch_imported"
 
     @classmethod
     def has(cls, value: str) -> bool:
