@@ -61,37 +61,22 @@
       height="calc(100vh - 340px)"
     >
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip>
+      <el-table-column prop="title" label="名称" min-width="360" show-overflow-tooltip>
         <template #default="{ row }">
-          <span class="poc-name">{{ row.name }}</span>
+          <span class="poc-name">{{ row.title || row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip>
-        <template #default="{ row }">
-          <span class="poc-title">{{ row.title || '-' }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="级别" width="80">
+      <el-table-column label="级别" width="80" align="center">
         <template #default="{ row }">
           <SeverityBadge :severity="row.severity" />
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="80">
+      <el-table-column label="状态" width="80" align="center">
         <template #default="{ row }">
           <StatusBadge :status="row.status" />
         </template>
       </el-table-column>
-      <el-table-column label="来源" width="72">
-        <template #default="{ row }">
-          <span class="cell-text">{{ SOURCE_MAP[row.source] || row.source }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="格式" width="100">
-        <template #default="{ row }">
-          <span class="cell-text">{{ FORMAT_MAP[row.format] || row.format }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="标签" min-width="140">
+      <el-table-column label="标签" width="150" align="center">
         <template #default="{ row }">
           <div class="tag-cell">
             <TagChip v-for="tag in row.tags.slice(0, 3)" :key="tag.id" :tag="tag" />
@@ -99,25 +84,26 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="CVE" width="130" show-overflow-tooltip>
+      <el-table-column label="CVE" width="130" align="center" show-overflow-tooltip>
         <template #default="{ row }">
           <span class="cell-text">{{ row.cve_ids?.join(', ') || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="作者" width="90" show-overflow-tooltip>
+      <el-table-column label="作者" width="90" align="center" show-overflow-tooltip>
         <template #default="{ row }">
           <span class="cell-text">{{ row.author || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" width="140">
+      <el-table-column label="更新时间" width="150" align="center">
         <template #default="{ row }">
-          <span class="cell-time">{{ formatRelativeTime(row.updated_at) }}</span>
+          <span class="cell-time">{{ formatDate(row.updated_at) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="100" align="center" fixed="right">
+      <el-table-column label="操作" width="150" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-cell">
             <el-button text size="small" type="primary" @click.stop="goToDetail(row.id)">查看</el-button>
+            <el-button v-if="canEdit" text size="small" type="danger" :icon="Delete" @click.stop="handleDelete(row)">删除</el-button>
           </div>
         </template>
       </el-table-column>
@@ -234,7 +220,16 @@
       </div>
     </el-drawer>
 
-    <!-- 确认对话框 -->
+    <!-- 确认对话框：单条删除 -->
+    <ConfirmDialog
+      v-model:visible="singleDeleteVisible"
+      title="确认删除"
+      :message="`确定要删除 POC ${(deleteTarget?.title || deleteTarget?.name) ?? ''} 吗？此操作不可恢复。`"
+      type="danger"
+      @confirm="confirmSingleDelete"
+    />
+
+    <!-- 确认对话框：批量删除 -->
     <ConfirmDialog
       v-model:visible="deleteDialogVisible"
       title="确认删除"
@@ -268,8 +263,8 @@ import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown, Link, CopyD
 import { listPocs, getPoc, deletePoc, changePocStatus } from '@/api/poc'
 import { exportPocs } from '@/api/import-export'
 import { usePermission } from '@/composables/usePermission'
-import { formatRelativeTime, copyToClipboard } from '@/utils/format'
-import { SEVERITY_OPTIONS, STATUS_OPTIONS, SOURCE_OPTIONS, FORMAT_OPTIONS, SOURCE_MAP, FORMAT_MAP } from '@/utils/constants'
+import { formatDate, copyToClipboard } from '@/utils/format'
+import { SEVERITY_OPTIONS, STATUS_OPTIONS, SOURCE_OPTIONS, FORMAT_OPTIONS, SOURCE_MAP } from '@/utils/constants'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SeverityBadge from '@/components/common/SeverityBadge.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
@@ -287,6 +282,8 @@ const pageSize = ref(20)
 const total = ref(0)
 const selectedIds = ref<number[]>([])
 const batchStatus = ref('')
+const deleteTarget = ref<PocListItem | null>(null)
+const singleDeleteVisible = ref(false)
 const deleteDialogVisible = ref(false)
 const exportDialogVisible = ref(false)
 const exportFormat = ref('json')
@@ -690,6 +687,27 @@ async function handleBatchStatus(status: string) {
   }
 }
 
+/** 打开单条删除确认框。 */
+function handleDelete(row: PocListItem) {
+  deleteTarget.value = row
+  singleDeleteVisible.value = true
+}
+
+/** 确认删除单条 POC，成功后刷新列表。 */
+async function confirmSingleDelete() {
+  singleDeleteVisible.value = false
+  const target = deleteTarget.value
+  if (!target) return
+  try {
+    await deletePoc(target.id)
+    ElMessage.success('删除成功')
+    deleteTarget.value = null
+    loadData()
+  } catch {
+    // 错误已由拦截器统一提示
+  }
+}
+
 function handleBatchDelete() {
   if (!selectedIds.value.length) return
   deleteDialogVisible.value = true
@@ -800,10 +818,6 @@ onMounted(loadData)
   color: $accent;
 }
 
-.poc-title {
-  color: $text-secondary;
-}
-
 .cell-text {
   color: $text-secondary;
   font-size: $font-caption;
@@ -816,6 +830,7 @@ onMounted(loadData)
 
 .tag-cell {
   display: flex;
+  justify-content: center;
   gap: 4px;
   flex-wrap: wrap;
   align-items: center;
@@ -839,15 +854,14 @@ onMounted(loadData)
 
 .action-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  line-height: 1;
 
   :deep(.el-button) {
     margin: 0;
     height: 24px;
-    padding: 0 8px;
+    padding: 0 6px;
     justify-content: center;
   }
 }
