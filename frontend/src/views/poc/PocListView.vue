@@ -171,10 +171,16 @@
             <div class="section-content text">{{ selectedPoc.description || '暂无描述' }}</div>
           </div>
 
-          <!-- {{BASE_URL}}/路径 -->
+          <!-- 路径 -->
           <div class="section">
-            <div class="section-label">路径</div>
-            <div class="section-content mono">{{ previewPath || '暂无可解析路径' }}</div>
+            <div class="section-label">
+              路径
+              <span v-if="previewPaths.length" class="count-badge">{{ previewPaths.length }}</span>
+            </div>
+            <div v-if="previewPaths.length" class="path-list">
+              <div v-for="(p, i) in previewPaths" :key="i" class="path-item section-content mono">{{ p }}</div>
+            </div>
+            <div v-else class="section-content">暂无可解析路径</div>
           </div>
 
           <!-- 数据包 -->
@@ -259,6 +265,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { load as loadYamlDoc } from 'js-yaml'
 import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown, Link, CopyDocument } from '@element-plus/icons-vue'
 import { listPocs, getPoc, deletePoc, changePocStatus } from '@/api/poc'
 import { exportPocs } from '@/api/import-export'
@@ -320,10 +327,10 @@ const cveText = computed(() => {
 })
 
 // ── 内容解析 ──────────────────────────────────────────────────
-const previewPath = computed(() => {
+const previewPaths = computed<string[]>(() => {
   const poc = selectedPoc.value
-  if (!poc) return ''
-  return extractPath(poc)
+  if (!poc) return []
+  return extractPaths(poc)
 })
 
 const previewPacket = computed(() => {
@@ -332,138 +339,114 @@ const previewPacket = computed(() => {
   return extractPacket(poc)
 })
 
-function extractPath(poc: PocDetail): string {
+/** 收集 POC 的全部路径（多请求 × 每请求多 path），保持顺序并去重。 */
+function extractPaths(poc: PocDetail): string[] {
   const content = poc.content || ''
-  const lines = content.split('\n')
+  if (!content) return []
 
-  // 在 requests/http 块内找 path 列表，取第一个值
-  let inBlock = false
-  let inPath = false
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim()
-    if (/^requests?\s*[:[]/.test(trimmed) || /^http\s*[:[]/.test(trimmed)) {
-      inBlock = true
-      continue
-    }
-    if (!inBlock) continue
-    // 遇到 path: 行，标记并继续
-    if (/^path\s*:/.test(trimmed)) {
-      // 行内直接跟值：path: '{{BaseURL}}/xxx'
-      const inline = trimmed.match(/^path\s*:\s*["']?(\{\{baseurl\s*\}\}\/[^\s"']*)["']?\s*$/i)
-      if (inline) return inline[1]
-      // 行内数组：path: ['{{BaseURL}}/xxx', ...]
-      const inlineArr = trimmed.match(/^path\s*:\s*\[?\s*["']?(\{\{baseurl\s*\}\}\/[^\s"',\]]*)/i)
-      if (inlineArr) return inlineArr[1]
-      // 值是列表格式，下一行开始找
-      inPath = true
-      continue
-    }
-    if (inPath) {
-      // 匹配 - '{{BaseURL}}/xxx' 或 - "{{BaseURL}}/xxx" 或 - {{BaseURL}}/xxx
-      const itemMatch = trimmed.match(/^-\s*["']?(\{\{baseurl\s*\}\}\/[^\s"']*)["']?\s*$/i)
-      if (itemMatch) return itemMatch[1]
-      // 如果遇到新字段且不再是列表项，退出 path 模式
-      if (/^\w/.test(trimmed) && !/^-\s/.test(trimmed)) inPath = false
+  const collected: string[] = []
+  const seen = new Set<string>()
+  const push = (p: string) => {
+    const v = p.trim()
+    if (v && !seen.has(v)) {
+      seen.add(v)
+      collected.push(v)
     }
   }
 
-  // 通用回退：查找 {{BaseURL}} 或路径模式
-  for (const line of lines) {
-    const trimmed = line.trim()
-    const baseMatch = trimmed.match(/\{\{baseurl\s*\}\}(\/[^\s,)'"]*)/i)
-    if (baseMatch) return baseMatch[1]
+  // 1. nuclei：用 js-yaml 真正解析，遍历 http/requests 请求列表的全部 path
+  if (poc.format === 'nuclei') {
+    const obj = safeLoadYaml(content)
+    const reqs = obj && (obj.http || obj.requests)
+    if (Array.isArray(reqs) && reqs.length) {
+      for (const req of reqs) {
+        for (const p of pathsOf(req)) push(p)
+      }
+    }
+    if (collected.length) return collected
   }
-  return ''
+
+  // 2. 通用回退：扫描 {{BaseURL}}/xxx 形态（兼容非 nuclei 与解析失败的情况）
+  for (const line of content.split('\n')) {
+    const baseMatch = line.match(/\{\{baseurl\s*\}\}(\/[^\s,)'"]*)/i)
+    if (baseMatch) push(baseMatch[1])
+  }
+  return collected
+}
+
+/** 从单个 nuclei 请求条目提取全部路径（raw 报文首行路径 + path 列表/标量）。 */
+function pathsOf(req: any): string[] {
+  if (!req || typeof req !== 'object') return []
+  const out: string[] = []
+  // raw 模式：从每段报文首行（如 `GET /xxx HTTP/1.1`）提取路径
+  if (req.raw != null) {
+    const rawStr = Array.isArray(req.raw) ? req.raw.map(String).join('\n') : String(req.raw)
+    for (const seg of rawStr.split(/\r?\n\s*\r?\n/)) {
+      const firstLine = seg.split(/\r?\n/)[0] || ''
+      const m = firstLine.match(/^[A-Z]+\s+(\S+)\s*HTTP\//i)
+      if (m) out.push(m[1])
+    }
+  }
+  if (Array.isArray(req.path)) {
+    for (const p of req.path) out.push(String(p))
+  } else if (req.path) {
+    out.push(String(req.path))
+  }
+  return out
 }
 
 function extractPacket(poc: PocDetail): string {
   const content = poc.content || ''
+  if (!content) return ''
   const lines = content.split('\n')
 
-  // 1. 优先提取 raw 块 —— 最忠实于协议原文（含空行与 body）
-  const rawBlocks = extractRawBlocks(lines)
-  if (rawBlocks.length) return rawBlocks.join('\n\n')
-
-  // 2. 无 raw 时，尝试 nuclei 结构化解析再重建
+  // 1. nuclei：用 js-yaml 真正解析 http/requests 请求列表，逐条重建 HTTP 报文
   if (poc.format === 'nuclei') {
-    try {
-      const yaml = loadYaml(content)
-      if (yaml) {
-        const reqs = yaml.requests || yaml.http || []
-        if (reqs?.length) {
-          const req = reqs[0]
-          if (req?.raw) return Array.isArray(req.raw) ? req.raw.join('\n') : String(req.raw)
-          return reconstructNucleiRequest(req)
-        }
-      }
-    } catch { /* ignore parse errors */ }
+    const obj = safeLoadYaml(content)
+    const reqs = obj && (obj.http || obj.requests)
+    if (Array.isArray(reqs) && reqs.length) {
+      const packets = reqs.map(requestToPacket).filter(Boolean)
+      if (packets.length) return packets.join('\n\n')
+    }
+    // js-yaml 解析失败时，退回原始 raw 块文本提取（块标量写法）
+    const rawBlocks = extractRawBlocks(lines)
+    if (rawBlocks.length) return rawBlocks.join('\n\n')
   }
 
-  // 3. 提取 pocsuite3 的 requests 调用
+  // 2. 提取 pocsuite3 的 requests 调用
   const pocsuiteMatch = content.match(/requests\.(?:get|post|put|delete)\s*\([^)]+\)/i)
   if (pocsuiteMatch) return pocsuiteMatch[0]
 
-  // 4. 回退：返回内容前 80 行作为数据包预览
+  // 3. 回退：返回内容前 80 行作为数据包预览
   return lines.slice(0, 80).join('\n')
 }
 
-function loadYaml(content: string): any {
+/** 用 js-yaml 安全解析；失败或非对象时返回 null。 */
+function safeLoadYaml(content: string): Record<string, any> | null {
   try {
-    // 动态 import js-yaml，避免 ESM 包在 Vue SFC 中的树摇问题
-    const lines = content.split('\n')
-    const result: any = {}
-    let current: any = result
-    // 简易 YAML 解析：只提取顶层的 requests/http/path/method/headers/body
-    const stack: any[] = [result]
-    const indentStack = [-1]
-    for (const line of lines) {
-      const trimmed = line.trimEnd()
-      if (!trimmed || trimmed.startsWith('#') || /^---/.test(trimmed)) continue
-      const indent = line.length - line.trimStart().length
-      while (indentStack.length > 1 && indent <= indentStack[indentStack.length - 1]) {
-        stack.pop()
-        indentStack.pop()
-      }
-      const match = trimmed.match(/^(\w[\w-]*)\s*:\s*(.*)$/)
-      if (match) {
-        const key = match[1]
-        const val = match[2].trim()
-        if (val === '' || val === '|' || val === '>') {
-          const obj: any = {}
-          stack[stack.length - 1][key] = obj
-          stack.push(obj)
-          indentStack.push(indent)
-        } else if (val.startsWith('[') || val.startsWith('{')) {
-          try { stack[stack.length - 1][key] = JSON.parse(val) } catch { stack[stack.length - 1][key] = val }
-        } else if (val === 'true') { stack[stack.length - 1][key] = true }
-        else if (val === 'false') { stack[stack.length - 1][key] = false }
-        else { stack[stack.length - 1][key] = val.replace(/^["']|["']$/g, '') }
-      }
-      // 处理数组项
-      const arrMatch = trimmed.match(/^\s*-\s+(.+)$/)
-      if (arrMatch) {
-        // 找到父级数组
-        const parent = stack[stack.length - 1]
-        const lastKey = Object.keys(parent).pop()
-        if (lastKey && Array.isArray(parent[lastKey])) {
-          parent[lastKey].push(arrMatch[1].replace(/^["']|["']$/g, ''))
-        }
-      }
-    }
-    return result
+    const obj = loadYamlDoc(content)
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) return obj as Record<string, any>
+    return null
   } catch {
     return null
   }
 }
 
-function reconstructNucleiRequest(req: any): string {
-  const method = req.method || 'GET'
-  const path = Array.isArray(req.path) ? req.path[0] : (req.path || '/')
-  const headers = req.headers || {}
-  const body = req.body || ''
+/** 把单个 nuclei 请求条目重建为 HTTP 报文；raw 优先于结构化字段。 */
+function requestToPacket(req: any): string {
+  if (!req || typeof req !== 'object') return ''
+  if (req.raw != null) {
+    return Array.isArray(req.raw) ? req.raw.map(String).join('\n') : String(req.raw)
+  }
+  const method = String(req.method || 'GET').toUpperCase()
+  let path = '/'
+  if (Array.isArray(req.path) && req.path.length) path = String(req.path[0])
+  else if (req.path) path = String(req.path)
+  const headers = req.headers && typeof req.headers === 'object' ? req.headers as Record<string, any> : {}
+  const body = req.body != null ? String(req.body) : ''
 
   let packet = `${method} ${path} HTTP/1.1\r\n`
-  packet += `Host: {{BASE_URL}}\r\n`
+  packet += `Host: {{BaseURL}}\r\n`
   for (const [k, v] of Object.entries(headers)) {
     packet += `${k}: ${v}\r\n`
   }
@@ -1024,6 +1007,19 @@ onMounted(loadData)
   display: flex;
   flex-direction: column;
   gap: $spacing-xs;
+}
+
+.path-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+
+  .path-item {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow-x: auto;
+  }
 }
 
 .ref-link {
