@@ -2,7 +2,8 @@
   <div class="vuln-list-view">
     <PageHeader title="CVE 列表" description="CVE 漏洞数据展示与维护，支持搜索、筛选、删除与批量删除">
       <template #actions>
-        <el-button v-if="canEdit" :icon="Upload" @click="goImport">导入 CVE</el-button>
+        <el-button :icon="Upload" @click="handleExport" :disabled="!selectedIds.length">导出</el-button>
+        <el-button v-if="canEdit" :icon="Download" @click="goImport">导入 CVE</el-button>
         <el-button v-if="canEdit" type="primary" :icon="Plus" @click="goCreate">新建 CVE</el-button>
       </template>
     </PageHeader>
@@ -26,6 +27,7 @@
     <!-- 批量操作栏 -->
     <div v-if="selectedIds.length" class="batch-bar">
       <span class="batch-info">已选 {{ selectedIds.length }} 项</span>
+      <el-button size="small" :icon="Upload" @click="handleExport">批量导出</el-button>
       <el-button v-if="canEdit" size="small" type="danger" :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
     </div>
 
@@ -36,7 +38,9 @@
       stripe
       class="vuln-table"
       height="calc(100vh - 340px)"
+      row-class-name="clickable-row"
       @selection-change="onSelectionChange"
+      @row-click="onRowClick"
     >
       <el-table-column type="selection" width="40" />
       <el-table-column prop="cve_id" label="CVE 编号" width="160" align="center">
@@ -65,16 +69,16 @@
           <span class="cell-count">{{ row.poc_count }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" width="150" align="center">
+      <el-table-column label="更新时间" width="150" align="center">
         <template #default="{ row }">
-          <span class="cell-time">{{ formatDate(row.created_at) }}</span>
+          <span class="cell-time">{{ formatDate(row.updated_at) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150" align="center" fixed="right">
+      <el-table-column label="操作" width="140" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-cell">
-            <el-button text size="small" type="primary" @click="viewVuln(row)">详情</el-button>
-            <el-button v-if="canEdit" text size="small" type="danger" :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            <el-button text size="small" type="primary" @click.stop="viewDetail(row)">详情</el-button>
+            <el-button v-if="canEdit" text size="small" type="danger" :icon="Delete" @click.stop="handleDelete(row)">删除</el-button>
           </div>
         </template>
       </el-table-column>
@@ -110,6 +114,22 @@
       type="danger"
       @confirm="confirmBatchDelete"
     />
+
+    <!-- 导出格式选择对话框 -->
+    <ConfirmDialog
+      v-model:visible="exportDialogVisible"
+      title="导出 CVE"
+      message="选择导出格式："
+      confirm-text="导出"
+      @confirm="confirmExport"
+    >
+      <template #default>
+        <el-radio-group v-model="exportFormat" class="export-format-group">
+          <el-radio value="json">JSON（包含完整字段，可再导入）</el-radio>
+          <el-radio value="yaml">YAML</el-radio>
+        </el-radio-group>
+      </template>
+    </ConfirmDialog>
   </div>
 </template>
 
@@ -117,8 +137,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Delete, Plus, Refresh, Search, Upload } from '@element-plus/icons-vue'
-import { deleteVuln, deleteVulnsBatch, listVulns } from '@/api/vuln'
+import { Delete, Download, Plus, Refresh, Search, Upload } from '@element-plus/icons-vue'
+import { deleteVuln, deleteVulnsBatch, exportVulns, listVulns } from '@/api/vuln'
 import { SEVERITY_OPTIONS } from '@/utils/constants'
 import { formatDate } from '@/utils/format'
 import { usePermission } from '@/composables/usePermission'
@@ -141,6 +161,8 @@ const selectedIds = ref<number[]>([])
 const deleteTarget = ref<VulnItem | null>(null)
 const singleDeleteVisible = ref(false)
 const deleteDialogVisible = ref(false)
+const exportDialogVisible = ref(false)
+const exportFormat = ref<'json' | 'yaml'>('json')
 
 /** 加载列表数据，透传筛选与分页参数。 */
 async function loadData() {
@@ -175,9 +197,15 @@ function resetFilters() {
   loadData()
 }
 
-/** 跳转到 POC 列表，按 CVE 编号过滤展示关联的 POC。 */
-function viewVuln(vuln: VulnItem) {
-  router.push(`/pocs?cve=${vuln.cve_id}`)
+/** 单击行跳转到 CVE 详情页（跳过勾选列与操作列，避免误触）。 */
+function onRowClick(row: VulnItem, column: { type?: string; label?: string }) {
+  if (column?.type === 'selection' || column?.label === '操作') return
+  router.push(`/vulns/${row.id}`)
+}
+
+/** 跳转到 CVE 详情页（操作列「详情」按钮）。 */
+function viewDetail(vuln: VulnItem) {
+  router.push(`/vulns/${vuln.id}`)
 }
 
 /** 跳转到新建 CVE 页（功能预留）。 */
@@ -235,6 +263,33 @@ async function confirmBatchDelete() {
   }
 }
 
+/** 打开导出格式选择对话框，未选中时提示。 */
+function handleExport() {
+  if (!selectedIds.value.length) {
+    ElMessage.warning('请先选择要导出的 CVE')
+    return
+  }
+  exportDialogVisible.value = true
+}
+
+/** 确认导出：按所选格式下载文件。 */
+async function confirmExport() {
+  exportDialogVisible.value = false
+  try {
+    const res = await exportVulns(selectedIds.value, exportFormat.value)
+    const blob = new Blob([res.content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cves-export.${exportFormat.value === 'json' ? 'json' : 'yaml'}`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    // 错误已由拦截器统一提示
+  }
+}
+
 onMounted(loadData)
 </script>
 
@@ -283,8 +338,19 @@ onMounted(loadData)
   margin-right: $spacing-sm;
 }
 
+.export-format-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-xs 0;
+}
+
 .vuln-table {
   flex: 1;
+
+  :deep(.clickable-row) {
+    cursor: pointer;
+  }
 }
 
 .cve-id {
