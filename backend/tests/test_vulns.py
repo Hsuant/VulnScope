@@ -107,7 +107,7 @@ class TestVulnBatchDelete:
         """批量删除选中 CVE 成功，返回实际删除数量。"""
         ids = self._setup_vulns(db, 3)
 
-        resp = client.delete("/api/v1/vulns", json={"ids": ids[:2]}, headers=auth_header)
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": ids[:2]}, headers=auth_header)
         assert resp.status_code == 200
         assert resp.json()["data"]["deleted_count"] == 2
 
@@ -121,26 +121,26 @@ class TestVulnBatchDelete:
         """批量删除时，不存在的 ID 静默跳过，不影响其余删除。"""
         ids = self._setup_vulns(db, 2)
 
-        resp = client.delete("/api/v1/vulns", json={"ids": [ids[0], ids[1], 99999]}, headers=auth_header)
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": [ids[0], ids[1], 99999]}, headers=auth_header)
         assert resp.status_code == 200
         assert resp.json()["data"]["deleted_count"] == 2
 
     def test_batch_delete_empty_ids(self, client: TestClient, auth_header: dict) -> None:
         """请求体为空 ID 列表返回 422。"""
-        resp = client.delete("/api/v1/vulns", json={"ids": []}, headers=auth_header)
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": []}, headers=auth_header)
         assert resp.status_code == 422
 
     def test_batch_delete_no_auth(self, client: TestClient, db: Session) -> None:
         """未认证批量删除返回 401。"""
         ids = self._setup_vulns(db, 1)
-        resp = client.delete("/api/v1/vulns", json={"ids": ids})
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": ids})
         assert resp.status_code == 401
 
     def test_batch_delete_viewer_forbidden(self, client: TestClient, db: Session) -> None:
         """viewer 角色批量删除返回 403。"""
         ids = self._setup_vulns(db, 1)
         viewer_headers = _create_viewer_headers(client)
-        resp = client.delete("/api/v1/vulns", json={"ids": ids}, headers=viewer_headers)
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": ids}, headers=viewer_headers)
         assert resp.status_code == 403
 
     def test_batch_delete_cascades_poc_vuln(self, client: TestClient, auth_header: dict, db: Session) -> None:
@@ -165,13 +165,13 @@ class TestVulnBatchDelete:
         # 删除前存在关联记录
         assert db.query(PocVuln).filter(PocVuln.vuln_id == vuln.id).count() == 1
 
-        resp = client.delete("/api/v1/vulns", json={"ids": [vuln.id]}, headers=auth_header)
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": [vuln.id]}, headers=auth_header)
         assert resp.status_code == 200
         assert resp.json()["data"]["deleted_count"] == 1
 
         # 关联记录已清理，POC 仍可查询
         assert db.query(PocVuln).filter(PocVuln.vuln_id == vuln.id).count() == 0
-        assert db.get(Vuln, vuln.id) is None
+        assert db.query(Vuln).filter(Vuln.id == vuln.id).count() == 0
         resp = client.get(f"/api/v1/pocs/{poc_id}", headers=auth_header)
         assert resp.status_code == 200
 
@@ -179,7 +179,7 @@ class TestVulnBatchDelete:
         """批量删除为每个被删 CVE 写入一条审计日志。"""
         ids = self._setup_vulns(db, 3)
 
-        resp = client.delete("/api/v1/vulns", json={"ids": ids}, headers=auth_header)
+        resp = client.request("DELETE", "/api/v1/vulns", json={"ids": ids}, headers=auth_header)
         assert resp.status_code == 200
 
         logs = db.query(AuditLog).filter(AuditLog.action == "vuln.deleted").all()
