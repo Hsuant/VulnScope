@@ -441,23 +441,35 @@ def _import_single_poc(
     db.flush()
 
     # 关联 CVE（不存在则按 POC 元数据自动创建；存在则仅补充空缺字段，不覆盖已有值）
+    #   先对 cve_id 去重，避免同一 POC 重复关联（poc_vuln 为复合主键，重复会触发 IntegrityError）
+    seen_vuln_ids: set[int] = set()
     for cve_id in npoc.cve_ids:
         cve_id = cve_id.strip().upper()
-        if cve_id:
-            vuln = db.scalar(select(Vuln).where(Vuln.cve_id == cve_id))
-            if vuln is None:
-                vuln = Vuln(cve_id=cve_id)
-                db.add(vuln)
-                db.flush()
-            _sync_vuln_from_poc(vuln, npoc)
-            db.add(PocVuln(poc_id=poc.id, vuln_id=vuln.id))
+        if not cve_id:
+            continue
+        vuln = db.scalar(select(Vuln).where(Vuln.cve_id == cve_id))
+        if vuln is None:
+            vuln = Vuln(cve_id=cve_id)
+            db.add(vuln)
+            db.flush()
+        _sync_vuln_from_poc(vuln, npoc)
+        if vuln.id in seen_vuln_ids:
+            continue
+        seen_vuln_ids.add(vuln.id)
+        db.add(PocVuln(poc_id=poc.id, vuln_id=vuln.id))
 
     # 关联标签（自动匹配已有标签，不存在的按规范格式创建）
+    #   _resolve_tag 跨 namespace/大小写/-与_ 归一匹配，不同写法可能解析到同一 tag.id；
+    #   且输入本身可能含重复标签。按 tag.id 去重，避免 poc_tag 复合主键冲突。
+    seen_tag_ids: set[int] = set()
     for tag_str in npoc.tags:
         tag_str = tag_str.strip()
         if not tag_str:
             continue
         tag = _resolve_tag(db, tag_str)
+        if tag.id in seen_tag_ids:
+            continue
+        seen_tag_ids.add(tag.id)
         db.add(PocTag(poc_id=poc.id, tag_id=tag.id))
 
     # 创建首条版本快照
