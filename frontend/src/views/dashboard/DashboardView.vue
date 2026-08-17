@@ -134,7 +134,7 @@
                 <span class="activity-name">{{ item.poc_name || '未知 POC' }}</span>
                 <span class="activity-action">{{ actionLabel(item.action) }}</span>
               </div>
-              <span class="activity-time">{{ formatRelative(item.timestamp) }}</span>
+              <span class="activity-time">{{ formatDateTime(item.timestamp) }}</span>
             </div>
           </div>
           <div v-else class="chart-empty">暂无活动记录</div>
@@ -149,7 +149,7 @@ import { ref, computed, onMounted } from 'vue'
 import { getFullDashboard, getTagNamespaceDistribution } from '@/api/dashboard'
 import { listNamespaces } from '@/api/tag'
 import { SEVERITY_MAP, STATUS_MAP, ACTION_MAP } from '@/utils/constants'
-import { formatRelativeTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import TrendChart from '@/components/dashboard/TrendChart.vue'
 import DonutChart, { type DonutItem } from '@/components/dashboard/DonutChart.vue'
@@ -286,9 +286,6 @@ function authorPercent(count: number): string {
 
 function actionLabel(action: string): string {
   return ACTION_MAP[action] || action
-}
-function formatRelative(date: string): string {
-  return formatRelativeTime(date)
 }
 
 onMounted(async () => {
