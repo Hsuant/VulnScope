@@ -311,9 +311,7 @@ http:
         assert resolved.namespace == "general"
         assert resolved.name == "nonexistent-tag-xyz"
 
-    def test_import_tag_with_namespace_hint(
-        self, client: TestClient, auth_header: dict, db: Session
-    ) -> None:
+    def test_import_tag_with_namespace_hint(self, client: TestClient, auth_header: dict, db: Session) -> None:
         """导入标签含 namespace:name 格式，解析后创建。"""
         from app.models.poc import Tag
 
@@ -330,9 +328,7 @@ http:
         assert resolved.namespace == "type"
         assert resolved.name == "cve"
 
-    def test_import_tag_new_namespace(
-        self, client: TestClient, auth_header: dict, db: Session
-    ) -> None:
+    def test_import_tag_new_namespace(self, client: TestClient, auth_header: dict, db: Session) -> None:
         """导入标签指定了不存在的 namespace，沿用输入 namespace。"""
         from app.services.import_service import _resolve_tag
 
@@ -372,9 +368,7 @@ http:
         assert "rce" in tag_names or "RCE" in tag_names
         assert "struts" in tag_names
 
-    def test_import_poc_ns_tags(
-        self, client: TestClient, auth_header: dict, db: Session
-    ) -> None:
+    def test_import_poc_ns_tags(self, client: TestClient, auth_header: dict, db: Session) -> None:
         """导入 namespace:name 格式的标签。"""
         # 导入含 type:cve, technique:rce 的 POC
         params = {"content": self.SAMPLE_WITH_NS_TAGS, "source": "imported"}
@@ -392,6 +386,9 @@ http:
         tag_namespaces = {t["namespace"] for t in item["tags"]}
         assert "type" in tag_namespaces
         assert "technique" in tag_namespaces
+
+
+class TestExport:
     """POC 导出接口测试。"""
 
     def test_export_json(self, client: TestClient, auth_header: dict) -> None:

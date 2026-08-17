@@ -334,9 +334,7 @@ def _resolve_tag(db: Session, tag_str: str) -> Tag:
     final_namespace = "general"
     if namespace_hint:
         # 检查 namespace 是否已存在（避免拼写错误创建孤立 namespace）
-        ns_exists = db.scalar(
-            select(Tag).where(func.lower(Tag.namespace) == namespace_hint.lower()).limit(1)
-        )
+        ns_exists = db.scalar(select(Tag).where(func.lower(Tag.namespace) == namespace_hint.lower()).limit(1))
         if ns_exists:
             final_namespace = ns_exists.namespace  # 保持已有 namespace 大小写
         else:
