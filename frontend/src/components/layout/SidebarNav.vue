@@ -33,10 +33,15 @@
         <el-menu-item v-if="canEdit" index="/pocs/import">导入 POC</el-menu-item>
       </el-sub-menu>
 
-      <el-menu-item index="/vulns">
-        <el-icon><Warning /></el-icon>
-        <template #title>CVE 漏洞库</template>
-      </el-menu-item>
+      <el-sub-menu index="/vulns">
+        <template #title>
+          <el-icon><Warning /></el-icon>
+          <span>CVE 漏洞库</span>
+        </template>
+        <el-menu-item index="/vulns">CVE 列表</el-menu-item>
+        <el-menu-item v-if="canEdit" index="/vulns/new">新建 CVE</el-menu-item>
+        <el-menu-item v-if="canEdit" index="/vulns/import">导入 CVE</el-menu-item>
+      </el-sub-menu>
 
       <el-menu-item index="/tags">
         <el-icon><Collection /></el-icon>
@@ -74,7 +79,9 @@ const { canEdit, isAdmin } = usePermission()
 
 const activeMenu = computed(() => {
   const path = route.path
-  if (path.startsWith('/pocs')) return path === '/pocs/new' || path.startsWith('/pocs/import') ? '/pocs' : path
+  // 子页面（新建/导入）高亮时，折叠父级菜单项保持展开状态
+  if (path.startsWith('/pocs')) return path.startsWith('/pocs/new') || path.startsWith('/pocs/import') ? '/pocs' : path
+  if (path.startsWith('/vulns')) return path.startsWith('/vulns/new') || path.startsWith('/vulns/import') ? '/vulns' : path
   return path
 })
 </script>

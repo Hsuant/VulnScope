@@ -61,7 +61,19 @@ const routes: RouteRecordRaw[] = [
         path: 'vulns',
         name: 'VulnList',
         component: () => import('@/views/vulns/VulnListView.vue'),
-        meta: { title: 'CVE 漏洞库', icon: 'Warning' },
+        meta: { title: 'CVE 列表', icon: 'Warning' },
+      },
+      {
+        path: 'vulns/new',
+        name: 'VulnCreate',
+        component: () => import('@/views/vulns/VulnCreateView.vue'),
+        meta: { title: '新建 CVE', icon: 'Edit', roles: ['editor', 'admin'] },
+      },
+      {
+        path: 'vulns/import',
+        name: 'VulnImport',
+        component: () => import('@/views/vulns/VulnImportView.vue'),
+        meta: { title: '导入 CVE', icon: 'Upload', roles: ['editor', 'admin'] },
       },
       {
         path: 'plugins',
