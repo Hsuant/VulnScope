@@ -50,12 +50,17 @@ python -m venv .venv
 # 复制环境变量配置
 cp .env.example .env
 
-# 执行数据库迁移
-.venv/Scripts/alembic upgrade head
+# 初始化数据库（建全部表，不含种子数据，幂等）
+.venv/Scripts/python -m app.db.init_db
 
-# 启动开发服务器（自动 reload）
+# 启动开发服务器（自动 reload；启动时建表并写入内置角色/管理员）
 .venv/Scripts/uvicorn app.main:app --reload --port 8000
 ```
+
+> **数据库初始化**：本项目不使用 Alembic 迁移，ORM 模型（`backend/app/models/`）是表结构的唯一真相。
+> - `python -m app.db.init_db` 仅按模型元数据 `create_all` 建全部缺失表（**不写任何种子数据**）；`--reset` 清空重建（**会丢数据**，用于模型字段变更后重建开发库）。
+> - 内置角色（viewer/editor/admin）与默认管理员（`admin` / `admin123`，可经 `.env` 配置）由应用启动 `lifespan` 按需写入，不在 `init_db` 命令产出。
+> - 注意 `create_all` 只建不存在的表、不会给已有表补列；字段变更后请用 `--reset` 或删除 `vulnscope.db` 后重启。
 
 ### 前端
 
@@ -103,14 +108,13 @@ VulnScope/
 │   ├── app/
 │   │   ├── main.py           # 应用入口 + 生命周期
 │   │   ├── core/             # 配置 / 异常 / 安全 / 事件 / 缓存
-│   │   ├── db/               # 会话管理 / 基类
-│   │   ├── models/           # ORM 模型
+│   │   ├── db/               # 会话管理 / 基类 / 初始化（init_db.py）
+│   │   ├── models/           # ORM 模型（表结构唯一真相）
 │   │   ├── schemas/          # Pydantic 请求/响应
 │   │   ├── api/v1/           # REST 路由
 │   │   ├── services/         # 业务服务层
 │   │   └── plugins/          # 插件框架
 │   ├── tests/                # pytest 测试
-│   ├── alembic/              # 数据库迁移
 │   ├── Dockerfile            # 后端镜像
 │   ├── start.bat / start.sh  # 启动脚本
 │   └── pyproject.toml        # 依赖 + 工具配置
@@ -193,7 +197,7 @@ cd backend
 | 层次 | 组件 | 用途 |
 |------|------|------|
 | 后端框架 | FastAPI + Uvicorn | 异步路由、自动 OpenAPI 文档 |
-| ORM | SQLAlchemy 2.0 + Alembic | 声明式模型、版本化迁移 |
+| ORM | SQLAlchemy 2.0 | 声明式模型，init_db.create_all 建全表（不使用 Alembic） |
 | 数据校验 | Pydantic v2 | 请求/响应模型、配置校验 |
 | 认证 | bcrypt + PyJWT | 密码哈希、双 token 机制 |
 | 缓存 | cachetools | 进程内 TTL 缓存 |

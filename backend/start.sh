@@ -1,6 +1,7 @@
 #!/bin/bash
 # VulnScope 后端启动脚本（Git Bash 环境）
 # 用法: ./start.sh [--no-migrate] [--port 8000]
+#        --no-migrate 跳过数据库初始化（应用启动时也会自动建表+种子）
 
 set -e
 
@@ -17,11 +18,12 @@ if [ ! -f "$VENV_PYTHON" ]; then
     exit 1
 fi
 
-# 执行数据库迁移
-if [ "$1" != "--no-migrate" ]; then
-    echo "[启动] 执行数据库迁移..."
-    "$SCRIPT_DIR/.venv/Scripts/alembic.exe" upgrade head
-    echo "[启动] 迁移完成"
+# 首次运行初始化数据库（仅建表，不含种子数据，幂等）
+# 库文件已存在则跳过；后续启动由 lifespan 静默建表 + 写入角色/管理员
+if [ "$1" != "--no-migrate" ] && [ ! -f vulnscope.db ]; then
+    echo "[启动] 首次运行：初始化数据库结构（建表，不含种子数据）..."
+    "$VENV_PYTHON" -m app.db.init_db
+    echo "[启动] 数据库初始化完成"
 fi
 
 # 启动开发服务器

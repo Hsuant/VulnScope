@@ -50,12 +50,17 @@ python -m venv .venv
 # Copy environment config
 cp .env.example .env
 
-# Run database migrations
-.venv/Scripts/alembic upgrade head
+# Initialize the database (creates all tables; no seed data; idempotent)
+.venv/Scripts/python -m app.db.init_db
 
-# Start development server (with auto-reload)
+# Start development server (auto-reload; on startup it builds tables and seeds roles/admin)
 .venv/Scripts/uvicorn app.main:app --reload --port 8000
 ```
+
+> **Database initialization**: This project does **not** use Alembic migrations. The ORM models (`backend/app/models/`) are the single source of truth for the schema.
+> - `python -m app.db.init_db` only runs `Base.metadata.create_all` to create any missing tables — **it writes no seed data**. Use `--reset` to drop and recreate everything (**destroys data**, used to rebuild the dev DB after model/field changes).
+> - Built-in roles (viewer/editor/admin) and the default admin (`admin` / `admin123`, configurable via `.env`) are written by the app `lifespan` on startup, not by the `init_db` command.
+> - Note: `create_all` only creates tables that do not yet exist; it will not add columns to existing tables. After a field change, use `--reset` or delete `vulnscope.db` and restart.
 
 ### Frontend
 
@@ -101,14 +106,13 @@ VulnScope/
 │   ├── app/
 │   │   ├── main.py           # App entry + lifecycle
 │   │   ├── core/             # Config / exceptions / security / events / cache
-│   │   ├── db/               # Session management / base classes
-│   │   ├── models/           # ORM models
+│   │   ├── db/               # Session management / base classes / init (init_db.py)
+│   │   ├── models/           # ORM models (single source of truth for schema)
 │   │   ├── schemas/          # Pydantic request/response schemas
 │   │   ├── api/v1/           # REST API routes
 │   │   ├── services/         # Business logic layer
 │   │   └── plugins/          # Plugin framework
 │   ├── tests/                # pytest test suite
-│   ├── alembic/              # Database migrations
 │   ├── Dockerfile            # Backend image
 │   ├── start.bat / start.sh  # Startup scripts
 │   └── pyproject.toml        # Dependencies + tooling config
@@ -185,7 +189,7 @@ cd backend
 | Layer | Component | Purpose |
 |-------|-----------|---------|
 | Framework | FastAPI + Uvicorn | Async routing, auto OpenAPI docs |
-| ORM | SQLAlchemy 2.0 + Alembic | Declarative models, versioned migrations |
+| ORM | SQLAlchemy 2.0 | Declarative models, init_db.create_all builds all tables (no Alembic) |
 | Validation | Pydantic v2 | Request/response models, config validation |
 | Auth | bcrypt + PyJWT | Password hashing, dual-token auth |
 | Cache | cachetools | In-process TTL cache |

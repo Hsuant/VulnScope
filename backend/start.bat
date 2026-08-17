@@ -31,14 +31,16 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 if "%MIGRATE%"=="1" (
-    echo [START] Running database migration...
-    .venv\Scripts\alembic.exe upgrade head
-    if errorlevel 1 (
-        echo [ERROR] Migration failed
-        pause
-        exit /b %errorlevel%
+    if not exist "vulnscope.db" (
+        echo [START] First run: initializing database schema ^(no seed data^)...
+        .venv\Scripts\python.exe -m app.db.init_db
+        if errorlevel 1 (
+            echo [ERROR] Database init failed
+            pause
+            exit /b %errorlevel%
+        )
+        echo [START] Database init done
     )
-    echo [START] Migration done
 )
 
 echo [START] VulnScope API: http://127.0.0.1:%PORT%

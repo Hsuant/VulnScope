@@ -1,4 +1,4 @@
-"""ORM 模型聚合导出：import 即完成模型注册（Alembic autogenerate 依赖）。"""
+"""ORM 模型聚合导出：import 即完成模型注册（init_db.create_all 依赖）。"""
 
 from app.models.poc import (
     AuditLog,

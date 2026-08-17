@@ -10,8 +10,8 @@ from app.api.v1 import health  # noqa: F401  (注册 /api/v1 路由)
 from app.core.config import settings
 from app.core.events import EventTypes, event_bus
 from app.core.exceptions import register_exception_handlers
-from app.db.base import Base
-from app.db.session import SessionLocal, engine
+from app.db import init_db
+from app.db.session import SessionLocal
 from app.services import auth_service
 
 
@@ -27,13 +27,16 @@ APP_NAME = settings.APP_NAME
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """启动期：建表 + 种子数据 + 事件消费者注册。"""
+    """启动期：初始化数据库结构（建表）+ 内置角色/管理员 + 事件消费者注册。
+
+    init_db 仅建结构；角色与默认管理员作为应用级引导数据在此写入（幂等）。
+    """
     try:
-        Base.metadata.create_all(bind=engine)
+        init_db.init_db()
     except Exception as exc:  # 数据库未就绪时不允许静默，但调试期兜底
         if settings.APP_ENV != "dev":
             raise
-        print(f"[bootstrap] skip create_all: {exc}")
+        print(f"[bootstrap] skip init_db: {exc}")
 
     db = SessionLocal()
     try:

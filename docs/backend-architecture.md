@@ -26,7 +26,7 @@
 | 语言 | Python | 3.10+ | 宿主语言，POC 生态以 Python 为主 |
 | Web 框架 | FastAPI | 0.110+ | 异步路由、Pydantic 校验、自动 OpenAPI 文档 |
 | ORM | SQLAlchemy | 2.0+ | 声明式模型、异步查询、方言无关 |
-| 数据库迁移 | Alembic | 1.13+ | 版本化数据库 schema 管理 |
+| 数据库初始化 | SQLAlchemy create_all | 2.0+ | 模型即 schema，命令行/启动建全表（不含种子数据，不使用 Alembic） |
 | 数据校验 | Pydantic v2 | 2.6+ | 请求/响应模型、配置校验、自定义验证器 |
 | 配置管理 | pydantic-settings | 2.2+ | 环境变量 + .env 文件分层配置 |
 | 密码哈希 | bcrypt | 4.1+ | 含随机盐的密码哈希 |
@@ -38,7 +38,7 @@
 ### 1.1 选型依据
 
 - **FastAPI 而非 Flask/Django**：原生异步支持、Pydantic 深度集成、自动生成 OpenAPI 文档，减少接口文档维护成本。
-- **SQLAlchemy 2.0 而非 Tortoise-ORM**：对 SQLite 和 MySQL 的全面支持，Alembic 迁移生态成熟，声明式模型与 Pydantic 配合良好。
+- **SQLAlchemy 2.0 而非 Tortoise-ORM**：对 SQLite 和 MySQL 的全面支持，声明式模型与 Pydantic 配合良好；schema 由模型定义，初始化通过 `Base.metadata.create_all` 一次建全表，无需 Alembic 迁移历史。
 - **PyJWT 而非 python-jose**：python-jose 已停止维护，PyJWT 是社区活跃的替代品。
 - **bcrypt 而非 passlib**：passlib 对 bcrypt 新版本的兼容性存在问题，直接使用 bcrypt 更可靠。
 - **cachetools 而非 Redis（v1）**：v1 单实例部署场景下进程内缓存足够，Redis 留待 v2 验证模块作为任务队列引入。
@@ -50,17 +50,11 @@
 ```
 backend/
 ├── pyproject.toml              # 项目元数据、依赖声明、工具配置
-├── alembic.ini                 # Alembic 配置文件
 ├── .env                        # 本地环境变量（不提交到版本库）
 ├── .env.example                # 环境变量模板
 ├── .gitignore
-├── start.sh / start.bat        # 启动脚本
-├── vulnscope.db                # 开发环境 SQLite 数据库文件
-├── alembic/                    # 数据库迁移目录
-│   ├── env.py                  # 迁移环境配置（复用项目数据库 URL）
-│   ├── script.py.mako          # 迁移模板文件
-│   └── versions/               # 版本化迁移文件
-│       └── 1d9d32c2d30f_initial.py
+├── start.sh / start.bat        # 启动脚本（内含数据库初始化步骤）
+├── vulnscope.db                # 开发环境 SQLite 数据库文件（不提交）
 ├── tests/                      # 测试套件
 │   ├── conftest.py             # 测试夹具：临时数据库、种子数据、客户端
 │   ├── test_health.py          # 健康检查接口测试
@@ -78,9 +72,10 @@ backend/
     ├── db/                      # 数据库层
     │   ├── __init__.py
     │   ├── base.py              # 声明式基类 + 公共 Mixin
-    │   └── session.py           # 引擎 + 会话工厂 + FastAPI 依赖注入
-    ├── models/                  # SQLAlchemy ORM 模型
-    │   ├── __init__.py          # 模型聚合导出（Alembic autogenerate 依赖）
+    │   ├── session.py           # 引擎 + 会话工厂 + FastAPI 依赖注入
+    │   └── init_db.py           # 数据库初始化（create_all 建全表，不含种子数据）
+    ├── models/                  # SQLAlchemy ORM 模型（表结构唯一真相）
+    │   ├── __init__.py          # 模型聚合导出（init_db.create_all 依赖）
     │   └── user.py              # User / Role 模型
     ├── schemas/                 # Pydantic 请求/响应模型
     │   ├── __init__.py
@@ -157,8 +152,8 @@ backend/
 ├─────────────────────────────────────────────────────────────┤
 │  数据层 (app/db/ + app/models/)                              │
 │  ┌──────────┐ ┌──────────────┐ ┌──────────────────┐         │
-│  │ 会话管理   │ │ ORM 模型      │ │ Alembic 迁移      │         │
-│  │ session.py│ │ models/      │ │ alembic/         │         │
+│  │ 会话管理   │ │ ORM 模型      │ │ 数据库初始化       │         │
+│  │ session.py│ │ models/      │ │ db/init_db.py   │         │
 │  └──────────┘ └──────────────┘ └──────────────────┘         │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -170,7 +165,7 @@ backend/
 | API 层 | 路由分发、参数校验、统一响应包装 | 不承载业务逻辑；通过依赖注入获取服务对象 |
 | 服务层 | 业务用例编排、事务边界、领域事件发布 | 依赖插件接口而非具体实现；可跨模型组合 |
 | 核心层 | 跨模块公共能力（配置、安全、异常、事件、缓存） | 下层不反向依赖上层 |
-| 数据层 | ORM 映射、数据库迁移、会话管理 | 全部经 SQLAlchemy，禁止裸 SQL 拼接 |
+| 数据层 | ORM 映射、数据库初始化、会话管理 | 全部经 SQLAlchemy，禁止裸 SQL 拼接 |
 
 ### 3.2 请求生命周期
 
@@ -356,7 +351,7 @@ v1 定义接口契约与注册表，M3 实现完整发现/加载/生命周期管
 
 ### 5.3 其余数据模型
 
-除上述 user / role / vuln 外，核心存储层还包含：`poc`（POC 主表）、`poc_version`（内容版本快照）、`poc_vuln`（POC↔CVE 关联）、`tag` / `poc_tag`（标签字典与关联）、`category` / `poc_category`（树形分类）、`vendor` / `product` / `component`（厂商-产品-组件）、`poc_affected`（版本影响范围）、`poc_source_record`（来源溯源）、`poc_attachment`（附属文件）、`audit_log`（操作审计日志）。模型定义集中于 `app/models/poc.py`，迁移文件位于 `alembic/versions/`。
+除上述 user / role / vuln 外，核心存储层还包含：`poc`（POC 主表）、`poc_version`（内容版本快照）、`poc_vuln`（POC↔CVE 关联）、`tag` / `poc_tag`（标签字典与关联）、`category` / `poc_category`（树形分类）、`vendor` / `product` / `component`（厂商-产品-组件）、`poc_affected`（版本影响范围）、`poc_source_record`（来源溯源）、`poc_attachment`（附属文件）、`audit_log`（操作审计日志）。模型定义集中于 `app/models/`，由 `app/db/init_db.py` 按 `Base.metadata.create_all` 一次建全表。
 
 ---
 
@@ -572,7 +567,7 @@ python -m venv .venv
 # 复制环境变量配置
 cp .env.example .env
 
-# 启动服务（自动执行数据库迁移）
+# 启动服务（自动建表 + 写入内置角色/管理员）
 start.bat       # Windows
 # 或 ./start.sh  # Git Bash
 ```
@@ -582,15 +577,15 @@ start.bat       # Windows
 **`start.bat`（Windows 命令提示符）**：
 
 ```batch
-start.bat              # 迁移 + 启动
-start.bat --no-migrate # 仅启动，跳过迁移
+start.bat              # 初始化数据库 + 启动
+start.bat --no-migrate # 仅启动，跳过数据库初始化
 start.bat --port 8080  # 自定义端口
 ```
 
 **`start.sh`（Git Bash）**：
 
 ```bash
-./start.sh              # 迁移 + 启动
+./start.sh              # 初始化数据库 + 启动
 ./start.sh --no-migrate # 仅启动
 ./start.sh --port 8080  # 自定义端口
 ```
@@ -601,10 +596,10 @@ start.bat --port 8080  # 自定义端口
 # 1. 激活虚拟环境
 .venv\Scripts\activate
 
-# 2. 执行数据库迁移
-alembic upgrade head
+# 2. 初始化数据库结构（建全量表，不含种子数据，幂等）
+python -m app.db.init_db
 
-# 3. 启动开发服务器
+# 3. 启动开发服务器（启动时也会自动初始化数据库）
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -624,7 +619,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 |--------|------|------|
 | `admin` | `admin123` | admin |
 
-首次启动时自动创建，修改密码请更新 `.env` 中的 `VULNSCOPE_SEED_ADMIN_PASSWORD` 后删除数据库重新迁移。
+首次启动时自动创建，修改密码请更新 `.env` 中的 `VULNSCOPE_SEED_ADMIN_PASSWORD` 后执行 `python -m app.db.init_db --reset`（或删除 `vulnscope.db`）重新初始化。
 
 ---
 
@@ -679,18 +674,15 @@ class Poc(Base, IntPKMixin, TimestampMixin):
     content: Mapped[str] = mapped_column(Text)
 ```
 
-然后在 `app/models/__init__.py` 中导出：
+然后在 `app/models/__init__.py` 中导出（导入即完成模型注册）：
 
 ```python
 from app.models.poc import Poc  # noqa: F401
 ```
 
-生成迁移：
-
-```bash
-alembic revision --autogenerate -m "add poc model"
-alembic upgrade head
-```
+应用变更：模型定义即 schema，无需生成迁移；重启应用或手动执行
+`python -m app.db.init_db` 即按最新模型 `create_all` 建表。已存在的开发库
+需 `--reset` 重建以应用字段/约束变更。
 
 ### 9.3 代码规范
 
@@ -705,24 +697,24 @@ alembic upgrade head
 .venv\Scripts\mypy.exe app/
 ```
 
-### 9.4 数据库迁移管理
+### 9.4 数据库初始化管理
+
+本项目不使用 Alembic 迁移，ORM 模型是表结构唯一真相，由
+`app/db/init_db.py` 统一初始化（`SCHEMA_MANIFEST` 记录全部 18 张表与字段清单）：
 
 ```bash
-# 生成自动迁移（基于模型变更）
-alembic revision --autogenerate -m "变更说明"
+# 初始化数据库结构（建缺失表，不含种子数据，幂等）
+python -m app.db.init_db
 
-# 查看迁移历史
-alembic history
-
-# 应用所有待执行迁移
-alembic upgrade head
-
-# 回滚最近一次迁移
-alembic downgrade -1
-
-# 回滚到指定版本
-alembic downgrade <revision_id>
+# 清空并重建全部表（开发用，会丢失数据；用于模型字段/约束变更后重建库）
+python -m app.db.init_db --reset
 ```
+
+> `init_db` 仅建表结构，不写入任何数据。内置角色（viewer/editor/admin）与
+> 默认管理员由应用启动 `lifespan`（`app/main.py`）按需写入，不在本命令产出。
+> 注意：`create_all` 只创建不存在的表，不会给已有表补列或改约束。
+> 因此字段变更后，对既有开发库需 `--reset`（或删除 `vulnscope.db`）后重启。
+> 新增表后首次 `init_db` 即可建出，不影响已有数据。
 
 ---
 
@@ -751,7 +743,7 @@ alembic downgrade <revision_id>
 | 服务层 | 单元测试，mock DB 会话 | pytest |
 | API 层 | 集成测试，TestClient + 内存 SQLite | httpx + pytest |
 | 插件契约 | 接口实现验证 | pytest |
-| 迁移 | Alembic 升级/回滚验证 | alembic command |
+| 数据库初始化 | 建全表（不含种子数据）验证 | `python -m app.db.init_db` |
 
 ### 10.3 测试夹具说明
 
@@ -794,7 +786,7 @@ alembic downgrade <revision_id>
 
 | 里程碑 | 内容 | 状态 |
 |--------|------|------|
-| M1 骨架 | 项目脚手架、配置分层、DB 迁移、鉴权、统一异常、插件接口 | ✅ 完成 |
+| M1 骨架 | 项目脚手架、配置分层、DB 初始化、鉴权、统一异常、插件接口 | ✅ 完成 |
 | M2 核心存储 | POC/Vuln/Tag/PocVersion 模型、CRUD API、过滤排序分页、搜索 | ✅ 完成 |
 | M3 插件框架 | 注册表、事件总线、Parser/Source 槽、Nuclei 解析器、模板校验 | ✅ 完成 |
 | M4 导入导出 | 导入向导 API、格式嗅探、去重、导出、CVE 批量导入 | ✅ 完成 |
@@ -806,8 +798,7 @@ alembic downgrade <revision_id>
 ```
 fastapi>=0.110       # Web 框架
 uvicorn[standard]    # ASGI 服务器
-sqlalchemy>=2.0      # ORM
-alembic>=1.13        # 数据库迁移
+sqlalchemy>=2.0      # ORM（模型即 schema，init_db.create_all 建全表）
 pydantic>=2.6        # 数据校验
 pydantic-settings>=2.2  # 配置管理
 PyJWT>=2.8           # JWT 签发校验
