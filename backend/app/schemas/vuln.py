@@ -35,3 +35,9 @@ class VulnCreate(BaseModel):
     description: str | None = None
     cvss: float | None = Field(default=None, ge=0, le=10)
     severity: str | None = Field(default=None, max_length=16)
+
+
+class VulnBatchDelete(BaseModel):
+    """批量删除 CVE 请求体。"""
+
+    ids: list[int] = Field(..., min_length=1, max_length=500, description="要删除的 CVE ID 列表")
