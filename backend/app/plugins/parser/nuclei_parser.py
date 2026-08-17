@@ -29,6 +29,24 @@ CVE_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 
 
+def _coerce_float(value: Any) -> float | None:
+    """把任意值安全转为 float，失败返回 None。"""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _str_value(value: Any) -> str | None:
+    """仅当值为非空字符串时返回其去空格形式，否则 None（排除 bool 等非字符串语义）。"""
+    if isinstance(value, str):
+        v = value.strip()
+        return v or None
+    return None
+
+
 class NucleiParser(PocParser):
     """Nuclei YAML 模板解析器。
 
@@ -75,7 +93,9 @@ class NucleiParser(PocParser):
     def _parse_single(self, doc: dict, raw_text: str) -> NormalizedPoc:
         """解析单个 Nuclei 模板文档。"""
         template_id = doc.get("id", "")
-        if not template_id or not NAME_PATTERN.match(template_id):
+        if not isinstance(template_id, str) or not template_id:
+            raise ValueError("模板缺少 id")
+        if not NAME_PATTERN.match(template_id):
             # 尝试转为小写再匹配（很多模板用大写 CVE-ID 作为 id）
             if not NAME_PATTERN.match(template_id.lower()):
                 raise ValueError(f"模板 id 非法: {template_id}")
@@ -98,10 +118,24 @@ class NucleiParser(PocParser):
 
         # 提取分类信息
         classification = info.get("classification", {}) or {}
+
+        # 提取 CVE 编号（两个来源，去重并保持顺序）：
+        # 1. 顶层 id —— 很多 CVE 模板直接以 CVE 编号作为模板 id
+        # 2. info.classification.cve-id —— 标准分类块中的 CVE 列表
         cve_ids_raw = classification.get("cve-id", []) or []
         if isinstance(cve_ids_raw, str):
             cve_ids_raw = [cve_ids_raw]
-        cve_ids = [c.upper() for c in cve_ids_raw if CVE_PATTERN.match(c)]
+        cve_ids: list[str] = []
+        if CVE_PATTERN.match(template_id):
+            cve_ids.append(template_id.upper())
+        cve_ids.extend(c.upper() for c in cve_ids_raw if CVE_PATTERN.match(c))
+        cve_ids = list(dict.fromkeys(cve_ids))
+
+        # CVSS 指标向量与评分（info.classification.cvss-metrics / cvss-score）
+        cvss_metrics = classification.get("cvss-metrics") or None
+        if isinstance(cvss_metrics, str):
+            cvss_metrics = cvss_metrics.strip() or None
+        cvss_score = _coerce_float(classification.get("cvss-score"))
 
         # 提取标签
         tags_raw = info.get("tags", "")
@@ -119,6 +153,12 @@ class NucleiParser(PocParser):
 
         # 提取 metadata（厂商/产品等信息）
         metadata = info.get("metadata", {}) or {}
+        vendor = _str_value(metadata.get("vendor")) if isinstance(metadata, dict) else None
+        product_name = _str_value(metadata.get("product")) if isinstance(metadata, dict) else None
+        # 构建 product 列表条目：vendor 与 product 至少有一个字符串值才产出
+        product_list: list[dict[str, Any]] | None = None
+        if vendor or product_name:
+            product_list = [{"vendor": vendor, "product": product_name}]
 
         # 构建 extra_meta
         extra_meta: dict[str, Any] = {}
@@ -182,6 +222,11 @@ class NucleiParser(PocParser):
             tags=tags,
             references=references,
             extra_meta=extra_meta,
+            cvss_score=cvss_score,
+            cvss_metrics=cvss_metrics,
+            remediation=remediation or None,
+            vendor=vendor,
+            product=product_list,
         )
 
     def _normalize_template(self, raw_text: str, doc: dict) -> str:

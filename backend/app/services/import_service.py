@@ -290,14 +290,25 @@ def _infer_name(text: str, fmt: str) -> str:
     return f"imported-{content_hash}"
 
 
+def _tag_match_key(token: str) -> str:
+    """归一化标签 token 为匹配/规范键：去空格、小写、下划线转连字符、去首尾连字符。
+
+    兼容全大写/全小写/混合大小写，以及 ``-`` 与 ``_`` 的差异——
+    ``SQL-Injection``、``sql_injection``、``SQL_Injection`` 归一为同一键 ``sql-injection``。
+    """
+    return token.strip().lower().replace("_", "-").strip("-")
+
+
 def _resolve_tag(db: Session, tag_str: str) -> Tag:
     """解析导入的标签字符串，自动匹配或创建规范标签。
 
     匹配策略：
     1. 支持 "namespace:name" 格式解析
-    2. 按名称不区分大小写匹配已有标签（跨所有 namespace）
-    3. 匹配成功则复用已有标签（保持其 namespace 和 name 大小写）
-    4. 匹配失败则创建新标签（namespace 从输入推断，无则默认 "general"）
+    2. 归一化匹配已有标签：小写 + 下划线统一为连字符，跨所有 namespace
+       （兼容全大写/全小写/混合大小写，以及 - 与 _ 的差异）
+    3. 匹配成功则复用已有标签（保持其 namespace 和 name 原样，即「转换为我们自创建的标签」）
+    4. 匹配失败则创建新标签：name 规范化为小写连字符形式；
+       namespace 从输入推断，无则默认 "general"
 
     Args:
         db: 数据库会话。
@@ -322,28 +333,63 @@ def _resolve_tag(db: Session, tag_str: str) -> Tag:
             name = nm
         # 若冒号后为空（如 "type:"），视作纯 name="type"
 
-    # 不区分大小写匹配已有标签
+    # 归一化匹配键（小写 + 下划线转连字符 + 去首尾连字符）
+    name_key = _tag_match_key(name)
+    if not name_key:
+        raise ValueError("标签名不能为空")
+
     from sqlalchemy import func
 
-    existing = db.scalar(select(Tag).where(func.lower(Tag.name) == name.lower()))
+    # 归一化匹配已有标签（跨所有 namespace，兼容大小写与 -/_ 差异）
+    existing = db.scalar(select(Tag).where(func.replace(func.lower(Tag.name), "_", "-") == name_key))
     if existing:
         return existing
 
-    # 未匹配到，创建新标签
+    # 未匹配到，创建新标签：name 规范化为小写连字符形式
     # 若输入有 namespace_hint 且该 namespace 已存在，沿用之；否则默认 "general"
     final_namespace = "general"
     if namespace_hint:
-        # 检查 namespace 是否已存在（避免拼写错误创建孤立 namespace）
-        ns_exists = db.scalar(select(Tag).where(func.lower(Tag.namespace) == namespace_hint.lower()).limit(1))
+        ns_key = _tag_match_key(namespace_hint)
+        ns_exists = db.scalar(
+            select(Tag).where(func.replace(func.lower(Tag.namespace), "_", "-") == ns_key).limit(1)
+        )
         if ns_exists:
-            final_namespace = ns_exists.namespace  # 保持已有 namespace 大小写
+            final_namespace = ns_exists.namespace  # 保持已有 namespace 原样
         else:
             final_namespace = namespace_hint
 
-    tag = Tag(namespace=final_namespace, name=name)
+    tag = Tag(namespace=final_namespace, name=name_key)
     db.add(tag)
     db.flush()
     return tag
+
+
+def _sync_vuln_from_poc(vuln: Vuln, npoc: Any) -> None:
+    """把 POC 解析出的 CVE 元数据同步到 vuln 记录。
+
+    仅填充目标字段为空的位置，不覆盖已有值；用于「CVE 不存在则创建、
+    存在则补缺」的导入联动。同步字段：cvss 评分、cvss_metrics、severity、
+    vendor、product、remediation.mitigation。
+
+    Args:
+        vuln: 目标 Vuln 记录（新建或已存在）。
+        npoc: 已解析的 NormalizedPoc，提供来源元数据。
+    """
+    if vuln.cvss is None and npoc.cvss_score is not None:
+        vuln.cvss = npoc.cvss_score
+    if not vuln.cvss_metrics and npoc.cvss_metrics:
+        vuln.cvss_metrics = npoc.cvss_metrics
+    if not vuln.severity and npoc.severity:
+        vuln.severity = npoc.severity
+    if not vuln.vendor and npoc.vendor:
+        vuln.vendor = npoc.vendor
+    if vuln.product is None and npoc.product:
+        vuln.product = npoc.product
+    if npoc.remediation:
+        current = dict(vuln.remediation or {})
+        if not current.get("mitigation"):
+            current["mitigation"] = npoc.remediation
+            vuln.remediation = current
 
 
 def _import_single_poc(
@@ -393,7 +439,7 @@ def _import_single_poc(
     db.add(poc)
     db.flush()
 
-    # 关联 CVE
+    # 关联 CVE（不存在则按 POC 元数据自动创建；存在则仅补充空缺字段，不覆盖已有值）
     for cve_id in npoc.cve_ids:
         cve_id = cve_id.strip().upper()
         if cve_id:
@@ -402,6 +448,7 @@ def _import_single_poc(
                 vuln = Vuln(cve_id=cve_id)
                 db.add(vuln)
                 db.flush()
+            _sync_vuln_from_poc(vuln, npoc)
             db.add(PocVuln(poc_id=poc.id, vuln_id=vuln.id))
 
     # 关联标签（自动匹配已有标签，不存在的按规范格式创建）

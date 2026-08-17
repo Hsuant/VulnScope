@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 # ── 测试数据 ────────────────────────────────────────────────────────────
@@ -86,6 +87,31 @@ references:
 ```python
 print("pwned")
 ```
+"""
+
+# 含完整 CVE 元数据的 Nuclei 模板（cvss-metrics/cvss-score/remediation/vendor/product）
+SAMPLE_NUCLEI_YAML_CVE_META = """id: apache-log4j2-rce-cve-meta
+
+info:
+  name: Apache Log4j2 JNDI RCE
+  author: security-team
+  severity: critical
+  description: Log4j2 JNDI lookup RCE.
+  remediation: Upgrade to Log4j 2.15.0 or later.
+  classification:
+    cve-id:
+      - CVE-2021-44228
+    cvss-metrics: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+    cvss-score: 9.8
+  metadata:
+    max-request: 1
+    vendor: apache
+    product: log4j
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/test"
 """
 
 
@@ -220,6 +246,55 @@ class TestImport:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["total"] >= 1
+
+    def test_import_syncs_cve_meta_to_new_vuln(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入带 CVE 元数据的 Nuclei 模板：CVE 不存在时自动创建并填充全部字段。"""
+        result = self._import_content(client, auth_header, SAMPLE_NUCLEI_YAML_CVE_META)
+        assert result["success"] == 1
+
+        from app.models.poc import Vuln
+
+        vuln = db.scalar(select(Vuln).where(Vuln.cve_id == "CVE-2021-44228"))
+        assert vuln is not None
+        assert vuln.cvss == 9.8
+        assert vuln.cvss_metrics == "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        assert vuln.severity == "critical"
+        assert vuln.vendor == "apache"
+        assert vuln.product == [{"vendor": "apache", "product": "log4j"}]
+        assert vuln.remediation == {"mitigation": "Upgrade to Log4j 2.15.0 or later."}
+
+    def test_import_syncs_cve_meta_fills_missing_only(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """导入时 CVE 已存在：仅补充空缺字段，不覆盖已有值。"""
+        from app.models.poc import Vuln
+
+        # 预置一条已有部分字段的 CVE
+        existing = Vuln(
+            cve_id="CVE-2021-44228",
+            vendor="Apache Software Foundation",
+            cvss=7.5,
+            remediation={"workaround": "set log4j2.formatMsgNoLookups=true"},
+        )
+        db.add(existing)
+        db.commit()
+
+        result = self._import_content(client, auth_header, SAMPLE_NUCLEI_YAML_CVE_META)
+        assert result["success"] == 1
+
+        db.refresh(existing)
+        # 已有值保持不变
+        assert existing.cvss == 7.5
+        assert existing.vendor == "Apache Software Foundation"
+        assert existing.remediation["workaround"] == "set log4j2.formatMsgNoLookups=true"
+        # 空缺字段被补充
+        assert existing.cvss_metrics == "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        assert existing.severity == "critical"
+        assert existing.product == [{"vendor": "apache", "product": "log4j"}]
+        # remediation.mitigation 被补入（workaround 保留）
+        assert existing.remediation["mitigation"] == "Upgrade to Log4j 2.15.0 or later."
 
     def test_import_markdown_success(self, client: TestClient, auth_header: dict) -> None:
         """导入 Markdown 文档成功，front-matter 字段正确映射。"""
@@ -386,6 +461,65 @@ http:
         tag_namespaces = {t["namespace"] for t in item["tags"]}
         assert "type" in tag_namespaces
         assert "technique" in tag_namespaces
+
+    def test_tag_match_unifies_case_and_separators(
+        self, client: TestClient, auth_header: dict, db: Session
+    ) -> None:
+        """标签匹配兼容大小写与 -/_ 差异，命中后复用我们自创建的标签。"""
+        from app.models.poc import Tag
+        from app.services.import_service import _resolve_tag
+
+        # 自创建标签：混合大小写 + 连字符
+        ours = Tag(namespace="technique", name="SQL-Injection")
+        db.add(ours)
+        db.commit()
+
+        # 导入侧各种写法都应命中同一条
+        for raw in ("sql_injection", "SQL_Injection", "sql-injection", "SQL-INJECTION"):
+            resolved = _resolve_tag(db, raw)
+            assert resolved.id == ours.id, f"未命中: {raw}"
+            assert resolved.name == "SQL-Injection", f"名称被改写: {raw}"
+
+    def test_tag_new_canonical_naming(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """未命中的导入标签以规范命名（小写 + 连字符）创建。"""
+        from app.services.import_service import _resolve_tag
+
+        resolved = _resolve_tag(db, "SQL_Injection")
+        assert resolved.namespace == "general"
+        assert resolved.name == "sql-injection"  # 规范化：小写 + 下划线转连字符
+
+    def test_tag_match_with_digits(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """含数字的标签在大小写/分隔符变体下同样命中同一条自创建标签。"""
+        from app.models.poc import Tag
+        from app.services.import_service import _resolve_tag
+
+        # 自创建标签含数字 + 连字符
+        ours = Tag(namespace="general", name="CVE-2021-44228")
+        db.add(ours)
+        db.commit()
+
+        # 导入侧各种写法（含下划线/大小写变体）都应命中同一条
+        for raw in ("cve_2021_44228", "CVE_2021-44228", "cve-2021-44228", "CVE-2021-44228"):
+            resolved = _resolve_tag(db, raw)
+            assert resolved.id == ours.id, f"未命中: {raw}"
+            assert resolved.name == "CVE-2021-44228", f"名称被改写: {raw}"
+
+    def test_tag_match_alphanumeric_mixed(self, client: TestClient, auth_header: dict, db: Session) -> None:
+        """字母+数字混合（如 Log4j2）的标签变体同样命中，且未命中时规范创建。"""
+        from app.models.poc import Tag
+        from app.services.import_service import _resolve_tag
+
+        ours = Tag(namespace="technique", name="Log4j2-RCE")
+        db.add(ours)
+        db.commit()
+
+        for raw in ("log4j2_rce", "LOG4J2_RCE", "log4j2-rce"):
+            resolved = _resolve_tag(db, raw)
+            assert resolved.id == ours.id, f"未命中: {raw}"
+
+        # 未命中：纯数字开头的新标签规范创建（数字保留）
+        new_tag = _resolve_tag(db, "2021_Log4Shell")
+        assert new_tag.name == "2021-log4shell"
 
 
 class TestExport:

@@ -66,6 +66,60 @@ class TestNucleiParser:
         results = self.parser.parse(bad_template)
         assert len(results) == 0
 
+    def test_cve_extracted_from_top_level_id(self) -> None:
+        """顶层 id 本身即 CVE 编号时，即使无 classification.cve-id 也应提取。"""
+        template = """id: CVE-2021-44228
+
+info:
+  name: Apache Log4j2 JNDI RCE
+  severity: critical
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/test"
+"""
+        poc = self.parser.parse(template)[0]
+        assert poc.cve_ids == ["CVE-2021-44228"]
+
+    def test_cve_deduped_across_id_and_classification(self) -> None:
+        """顶层 id 与 classification.cve-id 指向同一 CVE 时去重。"""
+        template = """id: CVE-2021-44228
+
+info:
+  name: Apache Log4j2 JNDI RCE
+  severity: critical
+  classification:
+    cve-id:
+      - CVE-2021-44228
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/test"
+"""
+        poc = self.parser.parse(template)[0]
+        assert poc.cve_ids == ["CVE-2021-44228"]
+
+    def test_cve_from_both_sources_distinct(self) -> None:
+        """顶层 id 与 classification.cve-id 给出不同 CVE 时应全部保留。"""
+        template = """id: CVE-2021-44228
+
+info:
+  name: Multi CVE
+  severity: high
+  classification:
+    cve-id:
+      - CVE-2021-45046
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/test"
+"""
+        poc = self.parser.parse(template)[0]
+        assert poc.cve_ids == ["CVE-2021-44228", "CVE-2021-45046"]
+
     def test_parse_empty(self) -> None:
         """空内容返回空列表。"""
         results = self.parser.parse("")

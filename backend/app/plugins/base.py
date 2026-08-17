@@ -45,6 +45,12 @@ class NormalizedPoc(BaseModel):
     tags: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
     extra_meta: dict[str, Any] = Field(default_factory=dict)
+    # CVE 元数据：导入时同步到 vuln 表（仅填充空字段，不覆盖已有值）
+    cvss_score: float | None = None
+    cvss_metrics: str | None = None
+    remediation: str | None = None
+    vendor: str | None = None
+    product: list[dict[str, Any]] | None = None
 
     def validate_structure(self) -> list[str]:
         """结构自检，返回错误列表（空列表 = 合法）。AI 生成模块复用此管道。"""
