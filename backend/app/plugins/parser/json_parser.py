@@ -1,7 +1,7 @@
 """自研 JSON 格式解析器（兼容导入）。
 
 将自研结构化 JSON 解析为 NormalizedPoc IR。
-JSON 格式见 docs/poc-template/poc.schema.json。
+JSON 格式见 templates/poc/poc.schema.json。
 """
 
 from __future__ import annotations
