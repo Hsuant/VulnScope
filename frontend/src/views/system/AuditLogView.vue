@@ -113,6 +113,7 @@ function search() {
 function detailSummary(detail: any): string {
   if (!detail) return '-'
   const parts: string[] = []
+  if (detail.filename) parts.push(detail.filename)
   if (detail.before) parts.push(`before: ${Object.keys(detail.before).join(',')}`)
   if (detail.after) parts.push(`after: ${Object.keys(detail.after).join(',')}`)
   if (detail.poc_name) parts.push(detail.poc_name)

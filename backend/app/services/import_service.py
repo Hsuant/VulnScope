@@ -229,6 +229,7 @@ def import_pocs(
                 "skipped": result.skipped,
                 "failed": result.failed,
                 "source": source,
+                "filename": filename,
             },
             ip=ip or "",
             created_at=dt.datetime.now(dt.timezone.utc),
