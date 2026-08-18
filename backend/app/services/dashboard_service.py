@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import func, select
@@ -265,7 +266,7 @@ class VulnHeatmapAggregator:
     采用面向对象封装聚合逻辑，使服务层保持轻量、便于单测复用。
     """
 
-    def __init__(self, rows: list[tuple], top_vendors: list[str]) -> None:
+    def __init__(self, rows: Sequence[tuple], top_vendors: list[str]) -> None:
         """初始化聚合器。
 
         Args:
@@ -358,11 +359,9 @@ def get_vuln_vendor_cvss_heatmap(db: Session, vendor_limit: int = 15) -> dict:
     top_vendors = [r[0] for r in top_rows]
 
     # 2) 仅取 Top 厂商的 (厂商, cvss) 行，交由聚合器分桶，控制数据量。
-    rows: list[tuple] = []
+    rows: Any = []
     if top_vendors:
-        rows = db.execute(
-            select(vendor_expr, Vuln.cvss).where(vendor_expr.in_(top_vendors))
-        ).all()
+        rows = db.execute(select(vendor_expr, Vuln.cvss).where(vendor_expr.in_(top_vendors))).all()
 
     result = VulnHeatmapAggregator(rows, top_vendors).build()
     cache.set(cache_key, result, ttl=settings.DASHBOARD_CACHE_TTL)
