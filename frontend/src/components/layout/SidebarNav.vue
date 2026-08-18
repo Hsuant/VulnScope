@@ -49,7 +49,7 @@
       </el-menu-item>
 
       <el-menu-item index="/plugins">
-        <el-icon><Setting /></el-icon>
+        <el-icon><Box /></el-icon>
         <template #title>插件面板</template>
       </el-menu-item>
 
@@ -113,6 +113,13 @@ const activeMenu = computed(() => {
   border-bottom: 1px solid $border-color;
   gap: 12px;
   flex-shrink: 0;
+}
+
+// 收起态：logo 图标与下方菜单图标统一居中对齐
+.sidebar.collapsed .logo {
+  justify-content: center;
+  padding: 0;
+  gap: 0;
 }
 
 .logo-icon {
@@ -226,15 +233,26 @@ const activeMenu = computed(() => {
     }
   }
 
-  // 折叠模式
-  .el-menu--collapse & {
+  // 折叠模式：复合选择器，匹配同一 el-menu 元素上的 el-menu--collapse 类
+  &.el-menu--collapse {
     :deep(.el-menu-item) {
+      // EP 折叠态给 el-menu-item 隐式约束了宽度（实测 48px，比子菜单标题窄 4px），
+      // 导致盒子偏左、图标无法居中到侧边栏中心。显式恢复 width:auto 使其填满可用宽度。
+      width: auto !important;
       padding: 0 !important;
       margin: 2px 6px;
       justify-content: center;
 
       .el-icon {
         margin-right: 0;
+      }
+
+      // 关键：折叠态图标被 EP 包在 .el-menu-tooltip__trigger（absolute）里，
+      // 其自带 padding:0 20px 且 flex-start，会导致图标偏右。
+      // 将其 padding 清零并居中，图标即对齐到侧边栏中心。
+      .el-menu-tooltip__trigger {
+        padding: 0 !important;
+        justify-content: center;
       }
     }
 
