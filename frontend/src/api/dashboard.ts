@@ -1,5 +1,5 @@
 import service from './request'
-import type { DashboardData, DistributionItem, TimelinePoint, TrendPoint, TopAuthor, RecentActivity, VulnTreemapItem, TagDistItem } from '@/types/dashboard'
+import type { DashboardData, DistributionItem, TimelinePoint, TrendPoint, TopAuthor, RecentActivity, VulnHeatmapData, TagDistItem } from '@/types/dashboard'
 
 export function getFullDashboard(): Promise<DashboardData> {
   return service.get('/dashboard/full')
@@ -41,6 +41,6 @@ export function getAssetSearchDistribution(): Promise<DistributionItem[]> {
   return service.get('/dashboard/asset-search-distribution')
 }
 
-export function getVulnCoverageTreemap(limit = 20): Promise<VulnTreemapItem[]> {
-  return service.get('/dashboard/vuln-treemap', { params: { limit } })
+export function getVulnVendorCvssHeatmap(vendorLimit = 15): Promise<VulnHeatmapData> {
+  return service.get('/dashboard/vuln-heatmap', { params: { vendor_limit: vendorLimit } })
 }

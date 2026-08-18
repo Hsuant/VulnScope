@@ -22,19 +22,15 @@
         <div class="panel panel--trend span-8">
           <div class="panel-head">
             <div>
-              <h3 class="panel-title">POC 创建趋势</h3>
-              <p class="panel-sub">近 30 天每日新增 · 累计 {{ trendSum }} 个</p>
-            </div>
-            <div class="legend-inline">
-              <span class="legend-dot accent" />
-              <span class="legend-text">新增 POC</span>
+              <h3 class="panel-title">POC / CVE 新增趋势</h3>
+              <p class="panel-sub">近 30 天每日新增 · 累计 POC {{ trendSum }} 个</p>
             </div>
           </div>
           <TrendChart :points="trendData" />
         </div>
 
         <div class="panel span-4">
-          <div class="panel-head"><h3 class="panel-title">状态分布</h3></div>
+          <div class="panel-head"><h3 class="panel-title">POC 状态分布</h3></div>
           <div class="donut-wrap">
             <DonutChart :items="statusItems" :total="stats.total_pocs" center-label="POC" />
             <div class="legend-col">
@@ -57,7 +53,8 @@
 
         <div class="panel span-4">
           <div class="panel-head">
-            <h3 class="panel-title">可选命名空间标签分布</h3>
+            <h3 class="panel-title">命名空间标签分布</h3>
+            <span class="panel-meta">共 {{ tagDistRaw.length }} 个标签</span>
           </div>
           <div class="ns-selector-wrap">
             <el-select
@@ -76,15 +73,8 @@
               />
             </el-select>
           </div>
-          <div class="donut-wrap">
-            <DonutChart :items="tagDistItems" variant="pie" />
-            <div class="legend-col">
-              <div v-for="s in tagDistItems" :key="s.name" class="legend-row">
-                <span class="legend-dot" :style="{ background: cssVar(s.colorKey) }" />
-                <span class="legend-text">{{ s.name }}</span>
-                <span class="legend-val">{{ s.value }}</span>
-              </div>
-            </div>
+          <div class="tag-pie-wrap">
+            <DonutChart :items="tagDistItems" variant="pie" show-labels />
           </div>
         </div>
 
@@ -94,14 +84,14 @@
         </div>
       </section>
 
-      <!-- ── CVE 影响范围矩形树图 / 高产作者 / 最近活动 ──────────── -->
+      <!-- ── CVE 厂商×CVSS 热力图 / 高产作者 / 最近活动 ──────────── -->
       <section class="grid">
         <div class="panel span-8">
           <div class="panel-head">
-            <h3 class="panel-title">CVE 影响范围</h3>
-            <span class="panel-meta">矩形树图 · 方块越大关联 POC 越多</span>
+            <h3 class="panel-title">厂商 × CVSS 风险矩阵</h3>
+            <span class="panel-meta">色越深 · 该格 CVE 越多</span>
           </div>
-          <TreemapChart :items="treemapItems" />
+          <HeatmapChart :data="heatmapData" />
         </div>
 
         <div class="panel span-4">
@@ -154,9 +144,9 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import TrendChart from '@/components/dashboard/TrendChart.vue'
 import DonutChart, { type DonutItem } from '@/components/dashboard/DonutChart.vue'
 import BarChart, { type BarItem } from '@/components/dashboard/BarChart.vue'
-import TreemapChart from '@/components/dashboard/TreemapChart.vue'
+import HeatmapChart from '@/components/dashboard/HeatmapChart.vue'
 import { cssVar, type ChartColorKey } from '@/composables/useChartTheme'
-import type { DashboardData } from '@/types/dashboard'
+import type { DashboardData, VulnHeatmapData } from '@/types/dashboard'
 
 const loading = ref(true)
 const data = ref<DashboardData | null>(null)
@@ -216,8 +206,8 @@ const stats = computed(() => data.value?.stats || {
   total_pocs: 0, total_active_pocs: 0, total_vulns: 0, total_tags: 0, total_categories: 0, total_authors: 0,
 })
 
-const trendData = computed(() => data.value?.creation_timeline || [])
-const trendSum = computed(() => trendData.value.reduce((s, p) => s + p.count, 0))
+const trendData = computed(() => data.value?.vulnerability_trend || [])
+const trendSum = computed(() => trendData.value.reduce((s, p) => s + p.new_pocs, 0))
 const activeRate = computed(() =>
   stats.value.total_pocs ? Math.round((stats.value.total_active_pocs / stats.value.total_pocs) * 100) : 0,
 )
@@ -254,6 +244,7 @@ const statusItems = computed<DonutItem[]>(() => {
     .map(d => ({ name: STATUS_MAP[d.key] || d.key, value: d.count, colorKey: STATUS_KEY[d.key] || 'accent' }))
 })
 
+// 命名空间标签全量展示（不折叠为"其他"），每项配循环色键。
 const tagDistItems = computed<DonutItem[]>(() =>
   tagDistRaw.value.map((d, i) => ({
     name: d.tag_name,
@@ -271,9 +262,9 @@ const assetSearchItems = computed<BarItem[]>(() => {
   }))
 })
 
-const treemapItems = computed(() => {
-  const items = data.value?.vuln_coverage_treemap || []
-  return items.map(d => ({ name: d.cve_id, value: d.poc_count, severity: d.severity }))
+const heatmapData = computed<VulnHeatmapData>(() => {
+  const h = data.value?.vuln_vendor_cvss_heatmap
+  return h ?? { x_labels: [], y_labels: [], cells: [] }
 })
 
 const authorData = computed(() => data.value?.top_authors || [])
@@ -516,6 +507,14 @@ onMounted(async () => {
 
 .ns-selector {
   width: 100%;
+}
+
+// 命名空间标签饼图容器：固定高度与两侧柱状图对齐，饼图引线标签撑满内部空间。
+.tag-pie-wrap {
+  flex: 1;
+  min-height: 0;
+  height: 220px;
+  display: flex;
 }
 
 // ── 排名列表 ───────────────────────────────────────────────────

@@ -75,12 +75,18 @@ class AssetSearchItem(BaseModel):
     count: int
 
 
-class VulnTreemapItem(BaseModel):
-    """CVE 影响范围矩形树图项。"""
+class VulnHeatmapData(BaseModel):
+    """CVE 厂商×CVSS 评分 热力图数据。
 
-    cve_id: str
-    severity: str
-    poc_count: int
+    Attributes:
+        x_labels: 横轴厂商名列表（Top-N，按关联 CVE 数降序）。
+        y_labels: 纵轴 CVSS 评分分桶标签（未评分 + 0..10，高分在顶）。
+        cells: [x_index, y_index, count] 三元组列表（全量矩阵，含 0）。
+    """
+
+    x_labels: list[str]
+    y_labels: list[str]
+    cells: list[list[int]]
 
 
 class DashboardResponse(BaseModel):
@@ -89,8 +95,8 @@ class DashboardResponse(BaseModel):
     stats: DashboardStats
     severity_distribution: list[SeverityDistribution]
     status_distribution: list[StatusDistribution]
-    creation_timeline: list[TimelinePoint]
+    vulnerability_trend: list[VulnerabilityTrend]
     top_authors: list[TopAuthor]
     recent_activities: list[RecentActivityItem]
     asset_search_distribution: list[AssetSearchItem]
-    vuln_coverage_treemap: list[VulnTreemapItem]
+    vuln_vendor_cvss_heatmap: VulnHeatmapData

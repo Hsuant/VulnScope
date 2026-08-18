@@ -90,15 +90,15 @@ def get_asset_search_distribution(request: Request, db: DbSession, user: Current
     return ok(dashboard_service.get_asset_search_distribution(db), request)
 
 
-@router.get("/vuln-treemap")
-def get_vuln_coverage_treemap(
+@router.get("/vuln-heatmap")
+def get_vuln_vendor_cvss_heatmap(
     request: Request,
     db: DbSession,
     user: CurrentUser,
-    limit: int = Query(default=20, ge=5, le=50, description="返回条数"),
+    vendor_limit: int = Query(default=15, ge=5, le=50, description="横轴保留厂商数"),
 ) -> dict:
-    """CVE 影响范围矩形树图：展示 CVE 编号及其关联 POC 数。"""
-    return ok(dashboard_service.get_vuln_coverage_treemap(db, limit), request)
+    """CVE 厂商×CVSS 评分热力图：横轴厂商、纵轴评分、数值为该格 CVE 数。"""
+    return ok(dashboard_service.get_vuln_vendor_cvss_heatmap(db, vendor_limit), request)
 
 
 @router.get("/full")

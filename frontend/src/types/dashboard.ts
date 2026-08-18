@@ -39,17 +39,24 @@ export interface DashboardData {
   stats: DashboardStats
   severity_distribution: DistributionItem[]
   status_distribution: DistributionItem[]
-  creation_timeline: TimelinePoint[]
+  vulnerability_trend: TrendPoint[]
   top_authors: TopAuthor[]
   recent_activities: RecentActivity[]
   asset_search_distribution: DistributionItem[]
-  vuln_coverage_treemap: VulnTreemapItem[]
+  vuln_vendor_cvss_heatmap: VulnHeatmapData
 }
 
-export interface VulnTreemapItem {
-  cve_id: string
-  severity: string
-  poc_count: number
+/**
+ * CVE 厂商×CVSS 评分 热力图数据。
+ *
+ * - x_labels：横轴厂商名（Top-N，按关联 CVE 数降序）。
+ * - y_labels：纵轴 CVSS 评分分桶（未评分 + 0..10，高分在顶）。
+ * - cells：[x_index, y_index, count] 三元组（全量矩阵，含 0）。
+ */
+export interface VulnHeatmapData {
+  x_labels: string[]
+  y_labels: string[]
+  cells: [number, number, number][]
 }
 
 export interface TagDistItem {

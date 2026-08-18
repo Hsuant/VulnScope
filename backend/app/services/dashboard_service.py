@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.cache import cache
 from app.core.config import settings
 from app.core.timeutil import iso_utc
-from app.models.poc import AuditLog, Poc, PocTag, PocVuln, Tag, Vuln
+from app.models.poc import AuditLog, Poc, PocTag, Tag, Vuln
 
 # ── 缓存键常量 ──────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ _CACHE_KEY_ACTIVITY = "dashboard:activity"
 _CACHE_KEY_TREND = "dashboard:trend"
 _CACHE_KEY_TAG_DIST = "dashboard:tag_dist"
 _CACHE_KEY_ASSET_SEARCH = "dashboard:asset_search"
-_CACHE_KEY_VULN_TREE = "dashboard:vuln_tree"
+_CACHE_KEY_VULN_HEATMAP = "dashboard:vuln_heatmap"
 
 
 # ── 统计聚合函数 ────────────────────────────────────────────────────────
@@ -240,21 +240,131 @@ def get_asset_search_distribution(db: Session) -> list[dict]:
     return result
 
 
-def get_vuln_coverage_treemap(db: Session, limit: int = 20) -> list[dict]:
-    """CVE 影响范围矩形树图：展示 CVE 编号及其关联 POC 数。"""
-    cache_key = f"{_CACHE_KEY_VULN_TREE}:{limit}"
+# ── CVE 厂商×CVSS 评分 热力图 ──────────────────────────────────────────
+
+# CVSS 评分分桶标签：索引 0 为"未评分"（cvss 为空），索引 1..11 对应
+# 评分 0..10。每个数值分桶覆盖 [n, n+1) 区间；10 分桶仅收纳恰好为 10.0 的项。
+_CVSS_BUCKET_LABELS: list[str] = ["未评分"] + [str(i) for i in range(11)]
+# "未评分"桶在 y_labels 中的索引位置。
+_BUCKET_INDEX_UNRATED = 0
+# CVSS 评分的有效上下界，用于 clamp，防止脏数据越界。
+_CVSS_MIN, _CVSS_MAX = 0.0, 10.0
+
+
+class VulnHeatmapAggregator:
+    """将 CVE（厂商 + CVSS 评分）聚合为二维热力矩阵。
+
+    该类为无状态数据加工对象：构造时接收原始行集与 Top-N 厂商清单，
+    build() 输出前端可直接消费的 ECharts 热力图数据结构。
+
+    设计要点：
+        - 横轴（x）：按关联 CVE 数取 Top-N 的厂商，NULL 厂商归入"未知"参与排序。
+        - 纵轴（y）：CVSS 评分分桶（0..10 + 未评分），高分置于顶部。
+        - 单元格数值：落入该厂商×评分格子的 CVE 数量。
+
+    采用面向对象封装聚合逻辑，使服务层保持轻量、便于单测复用。
+    """
+
+    def __init__(self, rows: list[tuple], top_vendors: list[str]) -> None:
+        """初始化聚合器。
+
+        Args:
+            rows: 数据库查询结果，每行为 (厂商名, cvss 评分)。
+            top_vendors: 已按 CVE 数降序排定的 Top-N 厂商清单（横轴顺序）。
+        """
+        self._rows = rows
+        self._top_vendors = top_vendors
+        # 厂商名 → 横轴索引，O(1) 定位，避免遍历查找。
+        self._vendor_index: dict[str, int] = {v: i for i, v in enumerate(top_vendors)}
+
+    def build(self) -> dict:
+        """构建热力图数据结构。
+
+        Returns:
+            包含 x_labels / y_labels / cells 三字段字典：
+            - x_labels: 厂商名列表（横轴）。
+            - y_labels: CVSS 分桶标签列表（纵轴，高分在顶）。
+            - cells: [x_index, y_index, count] 三元组列表（全量矩阵，含 0）。
+        """
+        matrix = self._init_matrix()
+        for vendor, cvss in self._rows:
+            xi = self._vendor_index.get(vendor)
+            if xi is None:
+                # 防御性兜底：仅统计 Top-N 厂商，跳过越界数据。
+                continue
+            yi = self._bucket_index(cvss)
+            matrix[xi][yi] += 1
+
+        # 展平为 ECharts 所需 [x, y, value] 三元组（全量，含 0），
+        # 保证前端热力网格完整渲染，空格子以最小色阶呈现。
+        cells = [
+            [xi, yi, matrix[xi][yi]]
+            for xi in range(len(self._top_vendors))
+            for yi in range(len(_CVSS_BUCKET_LABELS))
+        ]
+        return {
+            "x_labels": list(self._top_vendors),
+            "y_labels": list(_CVSS_BUCKET_LABELS),
+            "cells": cells,
+        }
+
+    def _init_matrix(self) -> list[list[int]]:
+        """初始化 厂商×分桶 的二维零矩阵。"""
+        return [[0] * len(_CVSS_BUCKET_LABELS) for _ in self._top_vendors]
+
+    @staticmethod
+    def _bucket_index(cvss: float | None) -> int:
+        """将 CVSS 评分映射到纵轴分桶索引。
+
+        Args:
+            cvss: CVSS 评分（0.0~10.0），None 表示未评分。
+
+        Returns:
+            分桶索引：0=未评分，1..11 对应 0..10 分桶。
+        """
+        if cvss is None:
+            return _BUCKET_INDEX_UNRATED
+        # 防御性 clamp，避免脏数据（负值/越界）导致索引异常。
+        score = max(_CVSS_MIN, min(_CVSS_MAX, float(cvss)))
+        # int() 向零截断，等价于 floor（CVSS 恒 >= 0）。
+        return int(score) + 1
+
+
+def get_vuln_vendor_cvss_heatmap(db: Session, vendor_limit: int = 15) -> dict:
+    """CVE 厂商×CVSS 评分热力图：横轴厂商、纵轴评分、数值为该格 CVE 数。
+
+    Args:
+        db: 数据库会话。
+        vendor_limit: 横轴保留的厂商数量上限（按关联 CVE 数降序）。
+
+    Returns:
+        见 VulnHeatmapAggregator.build() 返回结构。
+    """
+    cache_key = f"{_CACHE_KEY_VULN_HEATMAP}:{vendor_limit}"
     cached = cache.get(cache_key)
     if cached:
         return cached
 
-    rows = db.execute(
-        select(Vuln.cve_id, Vuln.severity, func.count(PocVuln.poc_id).label("poc_count"))
-        .join(PocVuln, Vuln.id == PocVuln.vuln_id)
-        .group_by(Vuln.id)
-        .order_by(func.count(PocVuln.poc_id).desc())
-        .limit(limit)
+    # 使用 coalesce 将 NULL 厂商归入"未知"，使其能参与 IN 过滤与排序。
+    vendor_expr = func.coalesce(Vuln.vendor, "未知")
+
+    # 1) 取关联 CVE 数 Top-N 的厂商（NULL 已归入"未知"参与排序）。
+    top_rows = db.execute(
+        select(vendor_expr, func.count().label("count"))
+        .group_by(vendor_expr)
+        .order_by(func.count().desc())
+        .limit(vendor_limit)
     ).all()
-    result = [{"cve_id": r[0], "severity": r[1] or "unknown", "poc_count": r[2]} for r in rows]
+    top_vendors = [r[0] for r in top_rows]
+
+    # 2) 仅取 Top 厂商的 (厂商, cvss) 行，交由聚合器分桶，控制数据量。
+    rows: list[tuple] = []
+    if top_vendors:
+        rows = db.execute(
+            select(vendor_expr, Vuln.cvss).where(vendor_expr.in_(top_vendors))
+        ).all()
+
+    result = VulnHeatmapAggregator(rows, top_vendors).build()
     cache.set(cache_key, result, ttl=settings.DASHBOARD_CACHE_TTL)
     return result
 
@@ -265,11 +375,11 @@ def get_full_dashboard(db: Session) -> dict:
         "stats": get_stats(db),
         "severity_distribution": get_severity_distribution(db),
         "status_distribution": get_status_distribution(db),
-        "creation_timeline": get_creation_timeline(db),
+        "vulnerability_trend": get_vulnerability_trend(db),
         "top_authors": get_top_authors(db),
         "recent_activities": get_recent_activities(db),
         "asset_search_distribution": get_asset_search_distribution(db),
-        "vuln_coverage_treemap": get_vuln_coverage_treemap(db),
+        "vuln_vendor_cvss_heatmap": get_vuln_vendor_cvss_heatmap(db),
     }
 
 
@@ -285,6 +395,6 @@ def invalidate_cache() -> None:
         _CACHE_KEY_TREND,
         _CACHE_KEY_TAG_DIST,
         _CACHE_KEY_ASSET_SEARCH,
-        _CACHE_KEY_VULN_TREE,
+        _CACHE_KEY_VULN_HEATMAP,
     ]:
         cache.delete(key)
