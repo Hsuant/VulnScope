@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from app.api.deps import CurrentUser, DbSession
+from app.core.netutil import get_client_ip
 from app.core.security import issue_token_pair
 from app.schemas.auth import (
     LoginRequest,
@@ -22,7 +23,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login")
 def login(request: Request, body: LoginRequest, db: DbSession) -> dict:
-    user = auth_service.authenticate(db, body.username, body.password)
+    client_ip = get_client_ip(request)
+    user = auth_service.authenticate(db, body.username, body.password, client_ip)
     tokens = issue_token_pair(user.id, user.username, user.role_name)
     resp = LoginResponse(**tokens, user=UserOut.model_validate(user))
     return ok(resp.model_dump(), request)

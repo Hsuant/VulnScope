@@ -64,11 +64,16 @@ backend/
     ├── main.py                  # FastAPI 应用入口 + 生命周期管理
     ├── core/                    # 核心基础设施
     │   ├── __init__.py
-    │   ├── config.py            # 分层配置（pydantic-settings）
-    │   ├── exceptions.py        # 统一异常体系（15 个错误码）
+    │   ├── config.py            # 分层配置（pydantic-settings）+ 生产 SECRET_KEY 校验
+    │   ├── exceptions.py        # 统一异常体系（含限流错误码 + 响应头透传）
     │   ├── security.py          # 密码哈希 + JWT 签发校验 + RBAC
     │   ├── events.py            # 事件总线（异步 asyncio 派发）
-    │   └── cache.py             # 缓存抽象层（inproc / redis 可切换）
+    │   ├── cache.py             # 缓存抽象层（inproc / redis 可切换）
+    │   ├── netutil.py           # 客户端 IP 提取（解析 X-Forwarded-For 反代链）
+    │   └── ratelimit/            # 限流框架（存储抽象 / 固定窗口 / 限流器门面）
+    │       ├── __init__.py
+    │       ├── storage.py       # 计数存储后端抽象 + 进程内固定窗口实现
+    │       └── limiter.py       # 限流器门面 + 判定结果
     ├── db/                      # 数据库层
     │   ├── __init__.py
     │   ├── base.py              # 声明式基类 + 公共 Mixin
@@ -209,18 +214,24 @@ ORM 数据操作（SQLAlchemy 2.0）
 | `VULNSCOPE_CACHE_BACKEND` | `inproc` | 缓存后端，可选 `inproc` / `redis`（v2） |
 | `VULNSCOPE_ACCESS_TOKEN_EXPIRE_MINUTES` | 30 | access token 过期时间（分钟） |
 | `VULNSCOPE_REFRESH_TOKEN_EXPIRE_DAYS` | 7 | refresh token 过期时间（天） |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED` | `true` | 登录限流开关（按 IP 防爆破） |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | `5` | 窗口内最大登录尝试次数 |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_WINDOW` | `300` | 限流窗口时长（秒） |
+
+> **生产安全校验**：`APP_ENV=prod` 时，`Settings.validate_security()` 在应用启动前校验 `SECRET_KEY`——为内置默认值或长度不足 32 字节即抛 `RuntimeError` 拒绝启动，强制运维注入随机密钥。`dev` / `test` 环境放行。
 
 ### 4.2 统一异常体系 (`app/core/exceptions.py`)
 
-所有 API 错误通过 `AppError` 异常抛出，全局处理器统一渲染为 `{code, message, data, request_id}`。
+所有 API 错误通过 `AppError` 异常抛出，全局处理器统一渲染为 `{code, message, data, request_id}`。`AppError` 可携带 `headers` 字段，由全局异常处理器透传到响应头（限流场景用于返回 `Retry-After` / `X-RateLimit-Reset`）。
 
-内置错误码（15 个）：
+内置错误码（16 个）：
 
 | 错误码 | HTTP 状态 | 场景 |
 |--------|----------|------|
 | `AUTH_INVALID_CREDENTIALS` | 401 | 用户名或密码错误 |
 | `AUTH_TOKEN_EXPIRED` | 401 | token 已过期 |
 | `AUTH_TOKEN_INVALID` | 401 | token 无效或类型不符 |
+| `AUTH_RATE_LIMITED` | 429 | 登录尝试过于频繁（携带 `Retry-After` 头） |
 | `FORBIDDEN` | 403 | 角色权限不足 |
 | `NOT_FOUND` | 404 | 资源不存在 |
 | `CONFLICT` | 409 | 数据冲突（如 POC 重复） |
@@ -228,6 +239,8 @@ ORM 数据操作（SQLAlchemy 2.0）
 | `POC_VALIDATION_ERROR` | 422 | POC 模板校验失败 |
 | `PLUGIN_NOT_AVAILABLE` | 503 | 插件未启用 |
 | `INTERNAL_ERROR` | 500 | 服务器内部错误 |
+
+`RateLimitedError` 是 `AppError` 的限流专用子类，构造时接收 `retry_after` 秒数，自动写入 `Retry-After` 与 `X-RateLimit-Reset` 响应头，前端可据此展示冷却倒计时。
 
 ### 4.3 安全模块 (`app/core/security.py`)
 
@@ -253,7 +266,29 @@ verify_password("admin123", hashed)  # → True/False
 | 编辑者 | `editor` | 增删改：POC 增删改、导入导出、标签管理 |
 | 管理员 | `admin` | 系统管理：用户、角色、审计日志 |
 
-### 4.4 事件总线 (`app/core/events.py`)
+**生产环境安全启动校验**：`Settings.validate_security()` 在 FastAPI `lifespan` 启动期最先调用。`APP_ENV=prod` 下若 `SECRET_KEY` 为内置默认值或长度不足 32 字节，立即抛 `RuntimeError` 终止启动，杜绝生产环境沿用开发密钥导致 JWT 签名可被伪造。`dev` / `test` 环境不强制，便于本地与测试快速启动。
+
+### 4.4 限流框架 (`app/core/ratelimit/`)
+
+面向对象分层设计，每层职责单一、可独立替换与单测：
+
+| 层 | 模块 | 职责 |
+|----|------|------|
+| 存储后端 | `storage.py` | `RateLimitStorage` 抽象（`get` / `increment` / `ttl` / `delete`）+ `InprocRateLimitStorage` 进程内实现 |
+| 窗口计数 | `storage.py` | 值为 `(count, expires_at)` 元组，惰性过期回收；自增不续期，保证固定窗口边界确定 |
+| 限流器 | `limiter.py` | `RateLimiter` 门面，`acquire(key, limit, ttl)` 返回不可变 `RateLimitResult`（`allowed` / `remaining` / `retry_after`） |
+
+固定窗口算法：每个标识在 `ttl` 窗口内最多允许 `limit` 次请求，超出即拒绝至窗口过期。`InprocRateLimitStorage` 用 `LRUCache` 限定容量，防止异常来源 IP 爆增导致内存无限增长；用 `time.monotonic` 单调时钟，不受系统时间回拨影响。Redis 分布式后端随 v2 任务队列引入，接口已预留，届时实现 `RateLimitStorage` 即可平滑替换。
+
+**登录限流接入**（`auth_service.authenticate`）：
+
+1. 登录前调用 `_check_login_rate_limit(client_ip)`，以 `login:ip:{ip}` 为键 `acquire` 一次配额；超限抛 `RateLimitedError`（429 + `Retry-After`）。
+2. 校验失败（凭据错误 / 账号停用）抛 `AppError`，计数已计入窗口。
+3. 校验成功后 `rate_limiter.reset()` 清零该 IP 计数，正常用户不被偶然失败拖入冷却。
+
+客户端 IP 经 `app/core/netutil.py` 的 `get_client_ip(request)` 提取：解析 `X-Forwarded-For` 链（支持指定可信代理跳数取最左侧真实客户端）→ 回退 `X-Real-IP` → 回退 `request.client.host` → 兜底 `unknown`。生产经前端边缘服务反代时，XFF 由代理写入，限流与审计据此识别真实来源。
+
+### 4.5 事件总线 (`app/core/events.py`)
 
 进程内异步事件派发，使用 `asyncio.create_task` 异步执行订阅者，不阻塞发布方。
 
@@ -269,7 +304,7 @@ v1 事件类型：
 | `poc.batch_imported` | POC 批量导入完成 | 审计日志、仪表盘缓存失效 |
 | `vuln.batch_imported` | CVE 批量导入完成 | 仪表盘缓存失效 |
 
-### 4.5 缓存抽象 (`app/core/cache.py`)
+### 4.6 缓存抽象 (`app/core/cache.py`)
 
 统一接口，后端可切换：
 
@@ -283,7 +318,7 @@ cache.delete("key")
 - v1 默认：`InprocCache`（`cachetools.TTLCache`，maxsize=1024）
 - v2 可切换：Redis（通过 `CACHE_BACKEND=redis` 配置）
 
-### 4.6 插件框架 (`app/plugins/`)
+### 4.7 插件框架 (`app/plugins/`)
 
 v1 定义接口契约与注册表，M3 实现完整发现/加载/生命周期管理。
 
@@ -430,6 +465,18 @@ Content-Type: application/json
   "request_id": ""
 }
 ```
+
+```json
+// 429 登录限流（携带 Retry-After / X-RateLimit-Reset 响应头）
+{
+  "code": "AUTH_RATE_LIMITED",
+  "message": "登录尝试过于频繁，请在 298 秒后重试（限制：300 秒内 5 次）",
+  "data": {"retry_after": 298},
+  "request_id": ""
+}
+```
+
+> 登录接口按客户端 IP 限流：窗口内失败次数达上限后，后续请求（含正确凭据）一律返回 429 至窗口结束。成功登录清零计数。限流参数见 §4.1。
 
 #### 刷新 Token
 
@@ -621,6 +668,16 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 首次启动时自动创建，修改密码请更新 `.env` 中的 `VULNSCOPE_SEED_ADMIN_PASSWORD` 后执行 `python -m app.db.init_db --reset`（或删除 `vulnscope.db`）重新初始化。
 
+### 8.7 Docker 部署
+
+生产部署采用双镜像编排，详见项目根 `docker-compose.yml` 与 `README.md`：
+
+- `vulnscope:latest`：后端镜像（`backend/Dockerfile`），非 root 运行，仅运行时依赖，内置 healthcheck，提供 API（容器内 8000，不对外暴露）。
+- `vulnscope-frontend:latest`：前端镜像（`frontend/Dockerfile`，`FROM vulnscope:latest`），内置宿主机预编译的 `dist`，运行 Starlette + httpx 边缘服务，托管 SPA 并反向代理 `/api/*` 到后端，对外暴露 80 端口。
+- 数据持久化：SQLite 落命名卷 `vulnscope-data`，挂载于容器 `/app/data`，与应用代码隔离。
+
+部署前置：项目根 `.env` 配置 `VULNSCOPE_SECRET_KEY` 与 `VULNSCOPE_ADMIN_PASSWORD`（缺失即拒绝启动）；在 `frontend/` 执行 `npm install && npm run build` 产出 `dist`；随后 `docker compose up -d --build`。运维命令与架构图见 `README.md` 的 Docker 部署章节。
+
 ---
 
 ## 9. 开发指南
@@ -756,7 +813,9 @@ python -m app.db.init_db --reset
 | `admin_token` | str | 管理员 access token |
 | `auth_header` | dict | `Authorization: Bearer <token>` 请求头 |
 
-### 10.4 测试用例清单（M1，12 个）
+### 10.4 测试用例清单
+
+测试套件共 143 个用例，覆盖认证、健康检查、POC CRUD、导入导出、CVE 导入、插件框架、登录限流等模块。
 
 **健康检查**（`test_health.py`）：
 - `test_health_ok`：正常响应用包含 status=ok 与 db=up
@@ -778,6 +837,10 @@ python -m app.db.init_db --reset
 - `test_refresh_success`：有效 refresh token 返回新 token 对
 - `test_refresh_with_access_token`：用 access token 刷新被拒绝
 
+**登录限流**（`test_rate_limit.py`，7 个）：
+- 限流器固定窗口语义：窗口内放行、超限拒绝、`reset` 清零、不同标识互相隔离
+- 登录端到端：超限返回 429 + `Retry-After` 头、成功登录重置计数、配置关闭时不生效
+
 ---
 
 ## 附录
@@ -791,7 +854,7 @@ python -m app.db.init_db --reset
 | M3 插件框架 | 注册表、事件总线、Parser/Source 槽、Nuclei 解析器、模板校验 | ✅ 完成 |
 | M4 导入导出 | 导入向导 API、格式嗅探、去重、导出、CVE 批量导入 | ✅ 完成 |
 | M5 前端 | Vue3 列表/详情/导入/标签/插件面板/系统页、CVE 详情/编辑/导入 | ✅ 完成 |
-| M6 部署 | Docker Compose 一键部署、种子数据、文档、压测 | ⏳ 进行中（Docker Compose 尚未完成） |
+| M6 部署 | 双镜像 Docker 编排、前端边缘服务、数据卷持久化、登录限流、安全启动校验 | ✅ 完成 |
 
 ### B. 依赖清单
 

@@ -21,6 +21,7 @@ class ErrorCode(str, Enum):
     AUTH_TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED"
     AUTH_TOKEN_INVALID = "AUTH_TOKEN_INVALID"
     AUTH_PASSWORD_FORMAT = "AUTH_PASSWORD_FORMAT"
+    AUTH_RATE_LIMITED = "AUTH_RATE_LIMITED"
     FORBIDDEN = "FORBIDDEN"
 
     # poc
@@ -46,6 +47,7 @@ _ERROR_HTTP: dict[ErrorCode, int] = {
     ErrorCode.AUTH_TOKEN_EXPIRED: status.HTTP_401_UNAUTHORIZED,
     ErrorCode.AUTH_TOKEN_INVALID: status.HTTP_401_UNAUTHORIZED,
     ErrorCode.AUTH_PASSWORD_FORMAT: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ErrorCode.AUTH_RATE_LIMITED: status.HTTP_429_TOO_MANY_REQUESTS,
     ErrorCode.FORBIDDEN: status.HTTP_403_FORBIDDEN,
     ErrorCode.POC_DUPLICATE: status.HTTP_409_CONFLICT,
     ErrorCode.POC_PARSE_ERROR: status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -57,17 +59,36 @@ _ERROR_HTTP: dict[ErrorCode, int] = {
 
 
 class AppError(Exception):
-    """业务异常基类，携带错误码 + 用户可读消息 + 细节数据。"""
+    """业务异常基类，携带错误码 + 用户可读消息 + 细节数据 + 可选响应头。"""
 
-    def __init__(self, code: ErrorCode, message: str | None = None, detail: dict | None = None) -> None:
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str | None = None,
+        detail: dict | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.code = code
         self.message = message or code.value
         self.detail = detail or {}
+        self.headers = headers or {}
         super().__init__(self.message)
 
     @property
     def http_status(self) -> int:
         return _ERROR_HTTP.get(self.code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RateLimitedError(AppError):
+    """登录限流：携带 Retry-After 头，前端可据此提示冷却倒计时。"""
+
+    def __init__(self, message: str, retry_after: int, detail: dict | None = None) -> None:
+        super().__init__(
+            ErrorCode.AUTH_RATE_LIMITED,
+            message=message,
+            detail=detail or {},
+            headers={"Retry-After": str(retry_after), "X-RateLimit-Reset": str(retry_after)},
+        )
 
 
 class NotFoundError(AppError):
@@ -91,6 +112,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.http_status,
+            headers=exc.headers or None,
             content={
                 "code": exc.code.value,
                 "message": exc.message,

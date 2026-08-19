@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import AppError, ErrorCode
+from app.core.exceptions import AppError, ErrorCode, RateLimitedError
+from app.core.ratelimit import rate_limiter
 from app.core.security import (
     Role,
     decode_token,
@@ -21,13 +22,49 @@ from app.models.user import User
 from app.schemas.auth import ProfileUpdate
 
 
-def authenticate(db: Session, username: str, password: str) -> User:
-    """校验用户名密码；失败统一 401，不区分"用户不存在"与"密码错误"。"""
+def _login_rate_key(client_ip: str) -> str:
+    """构造登录限流标识：按 IP 维度限制尝试次数。"""
+    return f"login:ip:{client_ip}"
+
+
+def _check_login_rate_limit(client_ip: str) -> None:
+    """登录前检查 IP 限流配额，超限抛 RateLimitedError（携带 Retry-After）。"""
+    if not settings.LOGIN_RATE_LIMIT_ENABLED:
+        return
+    key = _login_rate_key(client_ip)
+    result = rate_limiter.acquire(
+        key,
+        limit=settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+        ttl=settings.LOGIN_RATE_LIMIT_WINDOW,
+    )
+    if not result.allowed:
+        raise RateLimitedError(
+            message=(
+                f"登录尝试过于频繁，请在 {result.retry_after} 秒后重试"
+                f"（限制：{settings.LOGIN_RATE_LIMIT_WINDOW} 秒内 "
+                f"{settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS} 次）"
+            ),
+            retry_after=result.retry_after,
+            detail={"retry_after": result.retry_after},
+        )
+
+
+def authenticate(db: Session, username: str, password: str, client_ip: str = "") -> User:
+    """校验用户名密码；失败统一 401，不区分"用户不存在"与"密码错误"。
+
+    登录前按 IP 限流；成功后重置该 IP 的失败计数窗口。
+    """
+    _check_login_rate_limit(client_ip)
+
     user = db.scalar(select(User).where(User.username == username))
     if user is None or not verify_password(password, user.password_hash):
         raise AppError(ErrorCode.AUTH_INVALID_CREDENTIALS, "用户名或密码错误")
     if not user.is_active:
         raise AppError(ErrorCode.AUTH_INVALID_CREDENTIALS, "账号已停用")
+
+    # 登录成功：清零该 IP 的尝试计数，正常用户不被偶然失败拖入冷却。
+    if settings.LOGIN_RATE_LIMIT_ENABLED and client_ip:
+        rate_limiter.reset(_login_rate_key(client_ip))
 
     user.last_login_at = dt.datetime.now(dt.timezone.utc)
     db.commit()

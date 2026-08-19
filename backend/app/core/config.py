@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     PASSWORD_BCRYPT_ROUNDS: int = 12
 
+    # 登录限流（固定窗口）：按 IP 限制登录尝试，防爆破
+    LOGIN_RATE_LIMIT_ENABLED: bool = True
+    LOGIN_RATE_LIMIT_MAX_ATTEMPTS: int = 5  # 窗口内最大尝试次数
+    LOGIN_RATE_LIMIT_WINDOW: int = 300  # 窗口时长（秒），默认 5 分钟
+
     # 种子数据
     SEED_ADMIN_USERNAME: str = "admin"
     SEED_ADMIN_PASSWORD: str = "admin123"
@@ -72,6 +77,25 @@ class Settings(BaseSettings):
         if self.DATABASE_URL:
             return self.DATABASE_URL
         return DB_URLS.get(self.DB_BACKEND, DB_URLS["sqlite"])
+
+    # 默认开发密钥特征：生产环境使用将导致 JWT 可被伪造，必须拦截。
+    _DEFAULT_SECRET_KEY = "dev-only-change-me-in-production-32b"
+
+    def validate_security(self) -> None:
+        """生产环境安全配置校验：拒绝默认 SECRET_KEY。
+
+        prod 环境下 SECRET_KEY 仍为内置开发密钥时抛错，强制运维注入随机密钥，
+        避免 JWT 签名密钥泄露导致鉴权体系失守。dev/test 环境放行。
+        """
+        if self.APP_ENV != "prod":
+            return
+        if not self.SECRET_KEY or self.SECRET_KEY == self._DEFAULT_SECRET_KEY:
+            raise RuntimeError(
+                "生产环境(APP_ENV=prod)必须配置随机 SECRET_KEY，"
+                "推荐执行 `openssl rand -hex 32` 生成并通过 VULNSCOPE_SECRET_KEY 注入"
+            )
+        if len(self.SECRET_KEY) < 32:
+            raise RuntimeError("生产环境 SECRET_KEY 长度须不少于 32 字节")
 
 
 @lru_cache
