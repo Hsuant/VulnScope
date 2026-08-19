@@ -24,6 +24,8 @@
 - **Dashboard & Analytics** — Severity/status/source distribution, creation trends, top tags, top authors
 - **RBAC** — Three roles (viewer / editor / admin), granular access control
 - **Audit Logging** — Full write operation trail with before/after summaries and IP recording
+- **Login Rate Limiting** — Per-IP fixed-window throttling against brute force; over-limit returns 429 + `Retry-After`; counter resets on successful login
+- **Production Hardening** — Mandatory random `SECRET_KEY` startup validation in prod; deployment refuses to start if required variables are missing
 - **Plugin Framework** — Four slots: Parser, Source, Verifier, Exporter; plug-and-play
 - **Event-driven Architecture** — Async domain event dispatch, decoupled module integration
 
@@ -75,21 +77,75 @@ npm install
 npm run dev
 ```
 
-### Docker Deployment (Optional)
+### Docker Deployment (Production)
 
-A `docker-compose.yml` is included for one-command startup of both frontend and backend:
+The repo ships a production-grade `docker-compose.yml` with a two-image setup. Both images are based on the self-built `vulnscope` image (ultimately tracing to `python:3.10-slim`); no nginx / node runtime image is pulled:
+
+- **`vulnscope:latest` (backend)** — built from `backend/Dockerfile`, runtime dependencies only, runs as non-root user `app`, with a built-in healthcheck; serves the API on container port 8000 (not exposed externally).
+- **`vulnscope-frontend:latest` (frontend edge)** — `FROM vulnscope:latest`, bundles the host-prebuilt static `dist`, runs a lightweight Starlette + httpx edge service: serves the SPA (history-mode fallback) and reverse-proxies `/api/*` to the backend. Exposes port 80 as the single entry point.
+
+#### Deploy steps
 
 ```bash
-# From the project root
-docker compose up -d
+# 1. Configure environment variables in the project root (required)
+cp .env.example .env
+#    Edit .env and fill in:
+#    VULNSCOPE_SECRET_KEY=<random key from: openssl rand -hex 32>
+#    VULNSCOPE_ADMIN_PASSWORD=<strong password>
+
+# 2. Build frontend static assets on the host (the frontend image COPYs this dist)
+cd frontend
+npm install
+npm run build          # outputs to frontend/dist
+cd ..
+
+# 3. Build and start the full stack
+docker compose up -d --build
+```
+
+> The frontend Dockerfile does `COPY dist /app/dist`, so step 2 (`npm run build`) must run before image build.
+> To change the base Python version, update the site-packages path in both `backend/Dockerfile` and `frontend/Dockerfile`.
+
+#### Architecture & persistence
+
+```
+Browser ──http://localhost:80──> vulnscope-frontend (Starlette edge)
+                                     │  SPA static + history fallback
+                                     │  /api/* reverse proxy (X-Forwarded-For passthrough)
+                                     ▼
+                               vulnscope-backend (FastAPI, container port 8000)
+                                     │
+                                     ▼
+                          vulnscope-data volume → /app/data/vulnscope.db
+```
+
+- **Data persistence**: the SQLite database file lives on the named volume `vulnscope-data`, mounted at the container's standalone `/app/data` directory, fully separated from the application code baked into the image. Deleting or recreating containers does not lose data; upgrading the image does not lose data.
+- **Minimal exposure**: the backend port 8000 is not published; only the frontend edge service proxies to it over the container network. Port 80 is the sole external entry point.
+- **Non-root**: the backend runs as user `app (uid=999)`; the data directory is owned by `app`.
+- **Real client IP**: the frontend edge passes `X-Forwarded-For`; the backend `netutil.get_client_ip` parses the XFF chain to identify the real origin for rate limiting and auditing.
+
+#### Production variable validation
+
+`docker-compose.yml` uses `${VULNSCOPE_SECRET_KEY:?...}` and `${VULNSCOPE_ADMIN_PASSWORD:?...}` to enforce injection: `docker compose` errors out if these are absent from `.env`. On startup, `Settings.validate_security()` further checks that under `APP_ENV=prod` the `SECRET_KEY` is not the default value and is at least 32 bytes, aborting otherwise.
+
+#### Operations
+
+```bash
+docker compose ps                       # service status
+docker compose logs -f backend          # tail backend logs
+docker compose logs -f frontend          # tail frontend logs
+docker compose restart backend          # restart backend (in-process rate-limit counters reset)
+docker compose down                     # stop & remove containers (keeps volume)
+docker compose down -v                  # stop & remove containers and volume (clears data)
 ```
 
 ### Access URLs
 
 | URL | Description |
 |-----|-------------|
-| http://localhost:5173 | Frontend admin panel |
-| http://localhost:8000/docs | Swagger UI interactive docs |
+| http://localhost | Frontend admin panel (Docker deployment entry, port 80) |
+| http://localhost:5173 | Frontend dev server (dev mode `npm run dev` only) |
+| http://localhost:8000/docs | Swagger UI interactive docs (backend local dev) |
 | http://localhost:8000/api/v1/health | Health check |
 
 ### Default Admin Account
@@ -104,29 +160,45 @@ docker compose up -d
 VulnScope/
 ├── backend/                  # FastAPI backend
 │   ├── app/
-│   │   ├── main.py           # App entry + lifecycle
-│   │   ├── core/             # Config / exceptions / security / events / cache
+│   │   ├── main.py           # App entry + lifecycle + startup security validation
+│   │   ├── core/             # Config / exceptions / security / events / cache / ratelimit / net
+│   │   │   ├── config.py     # Layered config + prod SECRET_KEY validation
+│   │   │   ├── exceptions.py  # Unified exceptions (rate-limit error code + header passthrough)
+│   │   │   ├── ratelimit/    # Rate-limit framework (storage / fixed-window / limiter facade)
+│   │   │   ├── netutil.py    # Client IP extraction (parses X-Forwarded-For)
+│   │   │   ├── security.py   # JWT / password hashing / RBAC
+│   │   │   ├── events.py     # Event bus
+│   │   │   └── cache.py      # Cache backend abstraction (inproc / redis)
 │   │   ├── db/               # Session management / base classes / init (init_db.py)
 │   │   ├── models/           # ORM models (single source of truth for schema)
 │   │   ├── schemas/          # Pydantic request/response schemas
 │   │   ├── api/v1/           # REST API routes
-│   │   ├── services/         # Business logic layer
+│   │   ├── services/         # Business logic (auth_service wires login rate limiting)
 │   │   └── plugins/          # Plugin framework
-│   ├── tests/                # pytest test suite
-│   ├── Dockerfile            # Backend image
+│   ├── tests/                # pytest test suite (incl. rate-limit tests)
+│   ├── Dockerfile            # Backend image (non-root + healthcheck)
+│   ├── .dockerignore
 │   ├── start.bat / start.sh  # Startup scripts
 │   └── pyproject.toml        # Dependencies + tooling config
 ├── frontend/                 # Vue 3 frontend
-│   └── src/
-│       ├── views/            # Page components
-│       ├── components/       # Shared components
-│       ├── composables/      # Composition functions
-│       ├── api/              # API client
-│       ├── stores/           # State management
-│       ├── router/           # Routing
-│       └── styles/           # Global styles
+│   ├── src/
+│   │   ├── views/            # Page components
+│   │   ├── components/       # Shared components
+│   │   ├── composables/      # Composition functions
+│   │   ├── api/              # API client
+│   │   ├── stores/           # State management
+│   │   ├── router/           # Routing
+│   │   └── styles/           # Global styles
+│   ├── edge_server.py        # Frontend edge service (SPA hosting + /api reverse proxy)
+│   ├── Dockerfile            # Frontend image (FROM vulnscope)
+│   ├── nginx.conf            # Nginx config (optional nginx hosting, fallback)
+│   └── .dockerignore
+├── templates/                # Import/reference templates
+│   ├── cve/                  # CVE import templates (json/jsonl/yaml/markdown)
+│   └── poc/                  # POC template (nuclei-template.yaml)
 ├── docs/                     # Documentation + usage guide
-└── docker-compose.yml        # One-command Docker deployment
+├── .env.example              # Deployment env template (read by compose)
+└── docker-compose.yml        # Full-stack production orchestration
 ```
 
 ## API Overview
@@ -164,17 +236,21 @@ Configure via environment variables or `.env` file. All variables use the `VULNS
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VULNSCOPE_APP_ENV` | `dev` | Runtime environment (dev / test / prod) |
+| `VULNSCOPE_APP_ENV` | `dev` | Runtime environment (dev / test / prod); prod enables startup security validation |
 | `VULNSCOPE_DB_BACKEND` | `sqlite` | Database backend (sqlite / mysql) |
-| `VULNSCOPE_DATABASE_URL` | generated | Explicit DB URL (takes precedence) |
+| `VULNSCOPE_DATABASE_URL` | generated | Explicit DB URL (takes precedence); Docker sets `sqlite:////app/data/vulnscope.db` |
 | `VULNSCOPE_CACHE_BACKEND` | `inproc` | Cache backend (inproc / redis, v2) |
-| `VULNSCOPE_SECRET_KEY` | dev key | JWT signing key — change in production |
+| `VULNSCOPE_SECRET_KEY` | dev key | JWT signing key; prod refuses to start if default or < 32 bytes |
 | `VULNSCOPE_ACCESS_TOKEN_EXPIRE_MINUTES` | 30 | Access token TTL |
 | `VULNSCOPE_REFRESH_TOKEN_EXPIRE_DAYS` | 7 | Refresh token TTL |
 | `VULNSCOPE_SEED_ADMIN_USERNAME` | `admin` | Seed admin username |
-| `VULNSCOPE_SEED_ADMIN_PASSWORD` | `admin123` | Seed admin password |
+| `VULNSCOPE_SEED_ADMIN_PASSWORD` | `admin123` | Seed admin password (override in production) |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED` | `true` | Login rate-limit switch (per-IP brute-force protection) |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | `5` | Max login attempts within the window |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_WINDOW` | `300` | Rate-limit window duration (seconds) |
 
 > The full set of options is defined in `backend/app/core/config.py`; every variable uses the `VULNSCOPE_` prefix.
+> **Production deployment**: `docker-compose.yml` enforces `${VULNSCOPE_SECRET_KEY:?}` and `${VULNSCOPE_ADMIN_PASSWORD:?}` — missing values abort startup. See the root `.env.example`.
 
 ## Running Tests
 
@@ -213,7 +289,7 @@ cd backend
 - ✅ **M3 Plugin Framework** — Registry, event bus, Parser/Source slots
 - ✅ **M4 Import/Export** — Import wizard, format detection, dedup, export
 - ✅ **M5 Frontend** — Complete admin UI
-- ✅ **M6 Deployment** — One-command Docker Compose
+- ✅ **M6 Deployment** — Full-stack Docker production orchestration (two images + edge service + volume persistence + startup security validation)
 - ⏳ **M7 Polish** — Benchmarking, performance optimization
 - ⏳ **v2 Verification** — Remote POC execution
 - ⏳ **v2 AI Generation** — POC auto-generation from vulnerability descriptions

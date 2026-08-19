@@ -24,6 +24,8 @@
 - **统计看板** — 严重级别/状态/来源分布、创建趋势、热门标签、高产作者
 - **RBAC 权限** — 三角色（查看者/编辑者/管理员），颗粒度操作控制
 - **审计日志** — 所有写操作全量留痕，操作前后摘要 + IP 记录
+- **登录限流** — 按 IP 固定窗口限流防爆破，超限返回 429 + `Retry-After`，登录成功自动清零
+- **生产安全加固** — 生产环境强制随机 `SECRET_KEY` 启动校验，部署变量缺失即拒绝启动
 - **插件框架** — Parser/Source/Verifier/Exporter 四插槽，即插即用
 - **事件驱动架构** — 领域事件异步派发，模块间解耦联动
 
@@ -75,23 +77,75 @@ npm install
 npm run dev
 ```
 
-### Docker 部署（可选，进行中）
+### Docker 部署（生产）
 
-仓库自带 `docker-compose.yml`，用于本地一键拉起前后端容器：
+仓库自带生产级 `docker-compose.yml`，采用双镜像编排，两个镜像均基于自建 `vulnscope` 镜像（最终追溯到 `python:3.10-slim`），不引入 nginx / node 运行时镜像：
+
+- **`vulnscope:latest`（后端）** — 由 `backend/Dockerfile` 构建，仅含运行时依赖，以非 root 用户 `app` 运行，内置 healthcheck，提供 API（容器内 8000，不对外暴露）。
+- **`vulnscope-frontend:latest`（前端边缘服务）** — `FROM vulnscope:latest`，内置宿主机预编译的前端静态产物 `dist`，运行基于 Starlette + httpx 的轻量边缘服务：托管 SPA（history 模式 fallback）+ 反向代理 `/api/*` 到后端。对外暴露 80 端口，作为统一入口。
+
+#### 部署步骤
 
 ```bash
-# 在项目根目录
-docker compose up -d
+# 1. 在项目根目录配置环境变量（必须）
+cp .env.example .env
+#    编辑 .env，填入：
+#    VULNSCOPE_SECRET_KEY=<openssl rand -hex 32 生成的随机密钥>
+#    VULNSCOPE_ADMIN_PASSWORD=<强密码>
+
+# 2. 在宿主机编译前端静态产物（前端镜像构建时 COPY 此 dist）
+cd frontend
+npm install
+npm run build          # 产物输出到 frontend/dist
+cd ..
+
+# 3. 构建并启动全栈
+docker compose up -d --build
 ```
 
-> 该编排当前为开发用途（前端运行 `npm run dev` 热更新开发服务器，未做生产构建与镜像发布），生产级容器化（多阶段构建、Nginx 静态托管、健康检查与数据卷持久化）随 M6 推进中。
+> 前端镜像 `COPY dist /app/dist`，因此步骤 2 的 `npm run build` 必须先于镜像构建执行。
+> 若需更换基础镜像 Python 版本，同步修改 `backend/Dockerfile` 与 `frontend/Dockerfile` 中的 site-packages 路径。
+
+#### 架构与持久化
+
+```
+浏览器 ──http://localhost:80──> vulnscope-frontend (Starlette 边缘服务)
+                                     │  SPA 静态托管 + history fallback
+                                     │  /api/* 反代（透传 X-Forwarded-For）
+                                     ▼
+                               vulnscope-backend (FastAPI, 容器内 8000)
+                                     │
+                                     ▼
+                          vulnscope-data 卷 → /app/data/vulnscope.db
+```
+
+- **数据持久化**：SQLite 数据库文件落于命名卷 `vulnscope-data`，挂载到容器内独立目录 `/app/data`，与镜像内应用代码彻底分离。删除或重建容器不丢数据，升级镜像不丢数据。
+- **最小暴露面**：后端 8000 端口不对外发布，仅由前端边缘服务在容器网络内反向代理访问；对外仅暴露前端 80 端口。
+- **非 root 运行**：后端以 `app(uid=999)` 用户运行，数据目录归属 `app`。
+- **真实客户端 IP**：前端边缘服务透传 `X-Forwarded-For`，后端 `netutil.get_client_ip` 解析 XFF 链识别真实来源，供登录限流与审计使用。
+
+#### 生产环境变量校验
+
+`docker-compose.yml` 用 `${VULNSCOPE_SECRET_KEY:?...}` 与 `${VULNSCOPE_ADMIN_PASSWORD:?...}` 强制注入：未在 `.env` 中配置时 `docker compose` 直接报错拒绝启动。应用启动时 `Settings.validate_security()` 进一步校验：`APP_ENV=prod` 下 `SECRET_KEY` 为默认值或长度不足 32 字节则抛错退出。
+
+#### 运维命令
+
+```bash
+docker compose ps                       # 查看服务状态
+docker compose logs -f backend          # 跟随后端日志
+docker compose logs -f frontend         # 跟随前端日志
+docker compose restart backend          # 重启后端（进程内限流计数随之重置）
+docker compose down                     # 停止并删除容器（保留数据卷）
+docker compose down -v                  # 停止并删除容器与数据卷（清空数据）
+```
 
 ### 访问地址
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:5173 | 前端管理后台 |
-| http://localhost:8000/docs | Swagger UI 交互文档 |
+| http://localhost | 前端管理后台（Docker 部署统一入口，80 端口） |
+| http://localhost:5173 | 前端开发服务器（仅开发模式 `npm run dev`） |
+| http://localhost:8000/docs | Swagger UI 交互文档（后端本地开发） |
 | http://localhost:8000/api/v1/health | 健康检查 |
 
 ### 默认管理员账号
@@ -106,32 +160,45 @@ docker compose up -d
 VulnScope/
 ├── backend/                  # FastAPI 后端
 │   ├── app/
-│   │   ├── main.py           # 应用入口 + 生命周期
-│   │   ├── core/             # 配置 / 异常 / 安全 / 事件 / 缓存
+│   │   ├── main.py           # 应用入口 + 生命周期 + 安全启动校验
+│   │   ├── core/             # 配置 / 异常 / 安全 / 事件 / 缓存 / 限流 / 网络
+│   │   │   ├── config.py     # 分层配置 + 生产 SECRET_KEY 校验
+│   │   │   ├── exceptions.py  # 统一异常体系（含限流错误码 + 响应头透传）
+│   │   │   ├── ratelimit/    # 限流框架（存储抽象 / 固定窗口 / 限流器门面）
+│   │   │   ├── netutil.py    # 客户端 IP 提取（解析 X-Forwarded-For）
+│   │   │   ├── security.py   # JWT / 密码哈希 / RBAC
+│   │   │   ├── events.py     # 事件总线
+│   │   │   └── cache.py      # 缓存后端抽象（inproc / redis）
 │   │   ├── db/               # 会话管理 / 基类 / 初始化（init_db.py）
 │   │   ├── models/           # ORM 模型（表结构唯一真相）
 │   │   ├── schemas/          # Pydantic 请求/响应
 │   │   ├── api/v1/           # REST 路由
-│   │   ├── services/         # 业务服务层
+│   │   ├── services/         # 业务服务层（auth_service 内含登录限流接入）
 │   │   └── plugins/          # 插件框架
-│   ├── tests/                # pytest 测试
-│   ├── Dockerfile            # 后端镜像
+│   ├── tests/                # pytest 测试（含限流用例）
+│   ├── Dockerfile            # 后端镜像（非 root + healthcheck）
+│   ├── .dockerignore
 │   ├── start.bat / start.sh  # 启动脚本
 │   └── pyproject.toml        # 依赖 + 工具配置
 ├── frontend/                 # Vue 3 前端
-│   └── src/
-│       ├── views/            # 页面
-│       ├── components/       # 组件
-│       ├── composables/      # 组合式函数
-│       ├── api/              # API 客户端
-│       ├── stores/           # 状态管理
-│       ├── router/           # 路由
-│       └── styles/           # 全局样式
+│   ├── src/
+│   │   ├── views/            # 页面
+│   │   ├── components/       # 组件
+│   │   ├── composables/      # 组合式函数
+│   │   ├── api/              # API 客户端
+│   │   ├── stores/           # 状态管理
+│   │   ├── router/           # 路由
+│   │   └── styles/           # 全局样式
+│   ├── edge_server.py        # 前端边缘服务（SPA 托管 + /api 反代）
+│   ├── Dockerfile            # 前端镜像（FROM vulnscope）
+│   ├── nginx.conf            # Nginx 配置（可选 nginx 托管方案，备用）
+│   └── .dockerignore
 ├── templates/                # 导入/参考模板
 │   ├── cve/                  # CVE 导入模板（json/jsonl/yaml/markdown）
 │   └── poc/                  # POC 模板（nuclei-template.yaml）
 ├── docs/                     # 开发文档 + 使用说明书
-└── docker-compose.yml        # Docker 一键部署（M6 进行中）
+├── .env.example              # 部署环境变量模板（compose 读取）
+└── docker-compose.yml        # 全栈生产编排
 ```
 
 ## API 概览
@@ -172,17 +239,21 @@ VulnScope/
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `VULNSCOPE_APP_ENV` | `dev` | 运行环境（dev / test / prod） |
+| `VULNSCOPE_APP_ENV` | `dev` | 运行环境（dev / test / prod）；prod 触发安全启动校验 |
 | `VULNSCOPE_DB_BACKEND` | `sqlite` | 数据库后端（sqlite / mysql） |
-| `VULNSCOPE_DATABASE_URL` | 按后端生成 | 显式数据库连接 URL（优先级最高） |
+| `VULNSCOPE_DATABASE_URL` | 按后端生成 | 显式数据库连接 URL（优先级最高）；Docker 部署设为 `sqlite:////app/data/vulnscope.db` |
 | `VULNSCOPE_CACHE_BACKEND` | `inproc` | 缓存后端（inproc / redis，v2 引入） |
-| `VULNSCOPE_SECRET_KEY` | 开发密钥 | JWT 签名密钥，生产环境务必更换 |
+| `VULNSCOPE_SECRET_KEY` | 开发密钥 | JWT 签名密钥；prod 环境为默认值或不足 32 字节时启动拒绝 |
 | `VULNSCOPE_ACCESS_TOKEN_EXPIRE_MINUTES` | 30 | access token 过期时间 |
 | `VULNSCOPE_REFRESH_TOKEN_EXPIRE_DAYS` | 7 | refresh token 过期时间 |
 | `VULNSCOPE_SEED_ADMIN_USERNAME` | `admin` | 种子管理员用户名 |
-| `VULNSCOPE_SEED_ADMIN_PASSWORD` | `admin123` | 种子管理员密码 |
+| `VULNSCOPE_SEED_ADMIN_PASSWORD` | `admin123` | 种子管理员密码（生产环境务必覆盖） |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED` | `true` | 登录限流开关（按 IP 防爆破） |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | `5` | 窗口内最大登录尝试次数 |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_WINDOW` | `300` | 限流窗口时长（秒） |
 
 > 完整的可配置项以 `backend/app/core/config.py` 为准，所有变量均带 `VULNSCOPE_` 前缀。
+> **生产部署**：`docker-compose.yml` 通过 `${VULNSCOPE_SECRET_KEY:?}` 与 `${VULNSCOPE_ADMIN_PASSWORD:?}` 强制注入，缺失即拒绝启动；详见项目根 `.env.example`。
 
 ## 运行测试
 
@@ -222,7 +293,7 @@ cd backend
 - ✅ **M3 插件框架** — 注册表、事件总线、Parser/Source 槽
 - ✅ **M4 导入导出** — 导入向导、格式嗅探、去重、导出
 - ✅ **M5 前端** — 完整管理后台
-- ⏳ **M6 部署** — Docker Compose 一键部署（尚未完成）
+- ✅ **M6 部署** — Docker 全栈生产编排（双镜像 + 边缘服务 + 数据卷持久化 + 安全启动校验）
 - ⏳ **M7 收尾** — 压测、性能优化
 - ⏳ **v2 验证模块** — POC 远程验证执行
 - ⏳ **v2 AI 生成** — 基于漏洞描述的 POC 自动生成
