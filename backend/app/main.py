@@ -31,6 +31,9 @@ async def lifespan(app: FastAPI):
 
     init_db 仅建结构；角色与默认管理员作为应用级引导数据在此写入（幂等）。
     """
+    # 安全闸门：生产环境校验 SECRET_KEY，未配置随机密钥则拒绝启动。
+    settings.validate_security()
+
     try:
         init_db.init_db()
     except Exception as exc:  # 数据库未就绪时不允许静默，但调试期兜底
