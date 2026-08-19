@@ -1,42 +1,51 @@
-# VulnScope Docker Compose
-# 使用方式: docker compose up -d
-# 访问地址: http://localhost:8000 (后端) / http://localhost:5173 (前端)
+# VulnScope 全栈编排（生产）
+# 全部服务基于自建 vulnscope 镜像，不引入 nginx/node。
+# 启动前在项目根目录创建 .env：
+#   VULNSCOPE_SECRET_KEY=<openssl rand -hex 32>
+#   VULNSCOPE_ADMIN_PASSWORD=<强密码>
+# 使用：docker compose up -d
+# 访问：http://localhost （前端边缘服务统一入口，/api 反代至后端）
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: vulnscope:latest
     container_name: vulnscope-backend
-    ports:
-      - "8000:8000"
     environment:
-      - VULNSCOPE_APP_ENV=dev
+      - VULNSCOPE_APP_ENV=prod
       - VULNSCOPE_DB_BACKEND=sqlite
-      - VULNSCOPE_SECRET_KEY=${VULNSCOPE_SECRET_KEY:-dev-only-change-me-in-production-32b}
-      - VULNSCOPE_SEED_ADMIN_USERNAME=admin
-      - VULNSCOPE_SEED_ADMIN_PASSWORD=${VULNSCOPE_ADMIN_PASSWORD:-admin123}
+      - VULNSCOPE_DATABASE_URL=sqlite:////app/data/vulnscope.db
+      - VULNSCOPE_SECRET_KEY=${VULNSCOPE_SECRET_KEY:?必须在 .env 中设置 VULNSCOPE_SECRET_KEY}
+      - VULNSCOPE_SEED_ADMIN_USERNAME=${VULNSCOPE_ADMIN_USERNAME:-admin}
+      - VULNSCOPE_SEED_ADMIN_PASSWORD=${VULNSCOPE_ADMIN_PASSWORD:?必须在 .env 中设置 VULNSCOPE_ADMIN_PASSWORD}
+      - VULNSCOPE_SEED_ADMIN_EMAIL=${VULNSCOPE_ADMIN_EMAIL:-admin@vulnscope.local}
+      - VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED=${VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED:-true}
+      - VULNSCOPE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=${VULNSCOPE_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:-5}
+      - VULNSCOPE_LOGIN_RATE_LIMIT_WINDOW=${VULNSCOPE_LOGIN_RATE_LIMIT_WINDOW:-300}
     volumes:
-      - vulnscope-data:/app
+      # 数据卷仅挂载到独立 data 目录，与镜像内应用代码彻底分离
+      - vulnscope-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+    # 后端端口不对外暴露，仅由前端边缘服务反向代理访问
 
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: vulnscope-frontend:latest
     container_name: vulnscope-frontend
     ports:
-      - "5173:5173"
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+      - "80:80"
+    environment:
+      - BACKEND_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

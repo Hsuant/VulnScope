@@ -1,45 +1,32 @@
 # VulnScope 后端 Docker 镜像
-# 多阶段构建：阶段 1 — 安装依赖，阶段 2 — 运行
+# 单阶段构建：基于 python:3.10-slim 安装运行时依赖并打包应用。
+# 说明：bcrypt / pydantic-core 等均提供 manylinux 预编译 wheel，无需编译工具链；
+#       python:3.10-slim 自带 libsqlite3，满足 SQLite 运行需求，故无需 apt。
 
-# ── 阶段 1: 依赖安装 ────────────────────────────────────
-FROM python:3.11-slim AS builder
-
-WORKDIR /build
-
-# 安装系统依赖（编译 bcrypt 等需要）
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libc-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
-
-# ── 阶段 2: 运行 ────────────────────────────────────────
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
-# 安装运行时系统依赖（SQLite 支持）
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsqlite3-0 && \
-    rm -rf /var/lib/apt/lists/*
+# 升级 pip 以更好解析 wheel
+RUN pip install --no-cache-dir --upgrade pip
 
-# 从 builder 阶段复制 site-packages
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# 先拷依赖清单利用层缓存（仅 pyproject，应用代码后拷）
+COPY pyproject.toml ./
+COPY app ./app
 
-# 复制应用代码
-COPY . .
+# 安装运行时依赖（不含 dev 工具，降低体积与攻击面）
+RUN pip install --no-cache-dir .
 
-# 创建 .env 软链接
-RUN if [ ! -f .env ]; then cp .env.example .env; fi
+# 非 root 运行 + 数据目录（SQLite 持久卷挂载点）
+RUN groupadd -r app && useradd -r -g app -d /app -s /usr/sbin/nologin app && \
+    mkdir -p /app/data && \
+    chown -R app:app /app
+USER app
 
-# 暴露端口
 EXPOSE 8000
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')" || exit 1
 
-# 启动命令：先初始化完整数据库（建表 + 种子数据），再启动 API
+# 启动：先幂等建表，再启动 API（lifespan 也会建表 + 种子角色/管理员）
 CMD ["sh", "-c", "python -m app.db.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
