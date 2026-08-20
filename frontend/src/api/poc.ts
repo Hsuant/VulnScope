@@ -12,19 +12,21 @@ export interface PocListParams {
   format?: string
   author?: string
   tag_ids?: string
+  tag_ids_all?: string
   cve?: string
   category_id?: number
   created_at_from?: string
   created_at_to?: string
   q?: string
+  search_content?: boolean
 }
 
 export function listPocs(params: PocListParams): Promise<{ items: PocListItem[]; total: number; page: number; page_size: number; total_pages: number }> {
   return service.get('/pocs', { params })
 }
 
-export function searchPocs(q: string, page = 1, page_size = 20): Promise<{ items: PocListItem[]; total: number }> {
-  return service.get('/pocs/search', { params: { q, page, page_size } })
+export function searchPocs(q: string, page = 1, page_size = 20, search_content = false): Promise<{ items: PocListItem[]; total: number }> {
+  return service.get('/pocs/search', { params: { q, page, page_size, search_content } })
 }
 
 export function getPoc(id: number): Promise<PocDetail> {

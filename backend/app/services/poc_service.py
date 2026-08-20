@@ -517,11 +517,13 @@ def list_pocs(
     format: str | None = None,
     author: str | None = None,
     tag_ids: list[int] | None = None,
+    tag_ids_all: list[int] | None = None,
     cve: str | None = None,
     category_id: int | None = None,
     created_at_from: str | None = None,
     created_at_to: str | None = None,
     q: str | None = None,
+    search_content: bool = False,
 ) -> tuple[list[Poc], int]:
     """分页查询 POC 列表。
 
@@ -531,16 +533,17 @@ def list_pocs(
     # 基础查询
     base_query = select(Poc)
 
-    # 关键字搜索（名称/标题/描述）
+    # 关键字搜索（名称/标题/描述；search_content=True 时扩展正文 content）
     if q:
         like_pattern = f"%{q}%"
-        base_query = base_query.where(
-            or_(
-                Poc.name.ilike(like_pattern),
-                Poc.title.ilike(like_pattern),
-                Poc.description.ilike(like_pattern),
-            )
-        )
+        search_conditions = [
+            Poc.name.ilike(like_pattern),
+            Poc.title.ilike(like_pattern),
+            Poc.description.ilike(like_pattern),
+        ]
+        if search_content:
+            search_conditions.append(Poc.content.ilike(like_pattern))
+        base_query = base_query.where(or_(*search_conditions))
 
     # 精确过滤
     if severity:
@@ -557,6 +560,16 @@ def list_pocs(
     # 标签过滤（通过 PocTag 子查询）
     if tag_ids:
         base_query = base_query.where(Poc.id.in_(select(PocTag.poc_id).where(PocTag.tag_id.in_(tag_ids))))
+    # 标签 AND 过滤：POC 必须同时拥有所有指定标签（用于产品查询中厂商+产品的联合 AND 查询）
+    if tag_ids_all:
+        base_query = base_query.where(
+            Poc.id.in_(
+                select(PocTag.poc_id)
+                .where(PocTag.tag_id.in_(tag_ids_all))
+                .group_by(PocTag.poc_id)
+                .having(func.count(PocTag.tag_id) == len(tag_ids_all))
+            )
+        )
 
     # CVE 过滤（通过 PocVuln + Vuln 子查询）
     if cve:

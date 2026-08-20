@@ -14,29 +14,99 @@
       </template>
     </PageHeader>
 
-    <!-- 筛选栏 -->
+    <!-- 筛选栏（含标题） -->
     <div class="filter-bar">
-      <el-input
-        v-model="filters.q"
-        placeholder="搜索名称、标题、描述..."
-        clearable
-        class="filter-search"
-        :prefix-icon="Search"
-        @keyup.enter="search"
-      />
-      <el-select v-model="filters.severity" placeholder="严重级别" clearable multiple collapse-tags class="filter-select">
-        <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
-      </el-select>
-      <el-select v-model="filters.status" placeholder="状态" clearable multiple collapse-tags class="filter-select">
-        <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
-      </el-select>
-      <el-select v-model="filters.source" placeholder="来源" clearable multiple collapse-tags class="filter-select">
-        <el-option v-for="s in SOURCE_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
-      </el-select>
-      <el-select v-model="filters.format" placeholder="格式" clearable multiple collapse-tags class="filter-select">
-        <el-option v-for="s in FORMAT_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
-      </el-select>
+      <span class="filter-bar-label">常规查询</span>
+      <div class="query-fields">
+        <el-input
+          v-model="filters.q"
+          placeholder="搜索名称、标题、描述..."
+          clearable
+          class="filter-search"
+          :prefix-icon="Search"
+          @keyup.enter="search"
+        />
+        <el-cascader
+          v-model="filters.tagIds"
+          :options="tagOptions"
+          :props="{ multiple: true, emitPath: false, value: 'id', label: 'name' }"
+          placeholder="按标签查询"
+          clearable
+          collapse-tags
+          collapse-tags-tooltip
+          class="filter-cascader"
+        />
+        <el-select v-model="filters.severity" placeholder="严重级别" clearable multiple collapse-tags class="filter-select">
+          <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
+        <el-select v-model="filters.status" placeholder="状态" clearable multiple collapse-tags class="filter-select">
+          <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
+        <el-select v-model="filters.source" placeholder="来源" clearable multiple collapse-tags class="filter-select">
+          <el-option v-for="s in SOURCE_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
+      </div>
+      <el-button type="primary" :icon="Search" @click="search" class="filter-queries__btn">查询</el-button>
       <el-button :icon="Refresh" @click="resetFilters" class="filter-btn">清空</el-button>
+    </div>
+
+    <!-- 产品查询面板：基于标签命名空间（Vendor / OSS）的厂商 / 产品选择 -->
+    <div class="product-query-bar">
+      <span class="product-query-label">产品查询</span>
+      <div class="query-fields">
+        <TagSelectPanel
+          ref="tagSelectPanelRef"
+          @change="onTagSelectChange"
+          @clear="onTagSelectClear"
+        />
+        <el-select v-model="versionStartOp" placeholder="≥" class="op-select" @change="doProductQuery">
+          <el-option label="不限" value="any" />
+          <el-option label=">" value="gt" />
+          <el-option label=">=" value="gte" />
+          <el-option label="<" value="lt" />
+          <el-option label="<=" value="lte" />
+          <el-option label="==" value="eq" />
+        </el-select>
+        <el-input
+          v-model="versionStart"
+          placeholder="2.3.0"
+          clearable
+          class="version-input"
+          @keyup.enter="doProductQuery"
+        />
+        <el-select v-model="versionEndOp" placeholder="≤" class="op-select" @change="doProductQuery">
+          <el-option label="不限" value="any" />
+          <el-option label=">" value="gt" />
+          <el-option label=">=" value="gte" />
+          <el-option label="<" value="lt" />
+          <el-option label="<=" value="lte" />
+          <el-option label="==" value="eq" />
+        </el-select>
+        <el-input
+          v-model="versionEnd"
+          placeholder="2.3.5"
+          clearable
+          class="version-input"
+          @keyup.enter="doProductQuery"
+        />
+      </div>
+      <el-button type="primary" :icon="Search" :loading="productQueryLoading" @click="doProductQuery" class="filter-queries__btn">
+        查询
+      </el-button>
+      <el-button :icon="Refresh" @click="resetProductQuery" class="filter-btn">清空</el-button>
+    </div>
+
+    <!-- 产品查询状态条：仅产品模式下显示 -->
+    <div v-if="productMode" class="product-status-row">
+      <span class="product-mode-hint">
+        <el-icon class="hint-icon"><InfoFilled /></el-icon>
+        当前查询：{{ selectedVendorName ? `${selectedVendorName} : ` : '' }}{{ selectedOssName }}
+        {{ versionStart ? `${versionStartOp || '≥'} ${versionStart}` : '' }}
+        {{ versionEnd ? `～ ${versionEndOp || '≤'} ${versionEnd}` : '' }}
+      </span>
+      <el-button text size="small" type="primary" @click="exitProductMode">
+        返回列表
+      </el-button>
     </div>
 
     <!-- 批量操作栏 -->
@@ -266,21 +336,29 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { load as loadYamlDoc } from 'js-yaml'
-import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown, Link, CopyDocument } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown, Link, CopyDocument, InfoFilled } from '@element-plus/icons-vue'
 import { listPocs, getPoc, deletePoc, changePocStatus } from '@/api/poc'
+import { listTags } from '@/api/tag'
 import { exportPocs } from '@/api/import-export'
 import { usePermission } from '@/composables/usePermission'
 import { formatDate, copyToClipboard } from '@/utils/format'
-import { SEVERITY_OPTIONS, STATUS_OPTIONS, SOURCE_OPTIONS, FORMAT_OPTIONS, SOURCE_MAP } from '@/utils/constants'
+import { SEVERITY_OPTIONS, STATUS_OPTIONS, SOURCE_OPTIONS, SOURCE_MAP } from '@/utils/constants'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SeverityBadge from '@/components/common/SeverityBadge.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import TagChip from '@/components/common/TagChip.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import TagSelectPanel from '@/components/tags/TagSelectPanel.vue'
 import type { PocListItem, PocDetail } from '@/types/poc'
+import type { TagItem } from '@/types/tag'
 
 const router = useRouter()
 const { canEdit } = usePermission()
+
+onMounted(() => {
+  loadTagOptions()
+  loadData()
+})
 
 const items = ref<PocListItem[]>([])
 const loading = ref(false)
@@ -300,8 +378,149 @@ const filters = reactive({
   severity: [] as string[],
   status: [] as string[],
   source: [] as string[],
-  format: [] as string[],
+  tagIds: [] as number[],
 })
+
+// ── 标签级联选项（一级命名空间 → 二级标签名）──────────────
+const tagOptions = ref<{ id: string; name: string; children: { id: number; name: string }[] }[]>([])
+
+/** 拉取全部标签并按命名空间分组成二级级联选项。 */
+async function loadTagOptions() {
+  try {
+    const all: TagItem[] = []
+    let p = 1
+    const pageSize = 200
+    while (true) {
+      const res = await listTags({ page: p, page_size: pageSize })
+      all.push(...res.items)
+      if (res.items.length < pageSize || all.length >= (res.total || 0)) break
+      p++
+    }
+    const group = new Map<string, TagItem[]>()
+    for (const t of all) {
+      if (!group.has(t.namespace)) group.set(t.namespace, [])
+      group.get(t.namespace)!.push(t)
+    }
+    // 注意：props 中 value/label 字段名（id/name）作用于所有层级，
+    // 因此一级（命名空间）对象也必须使用 id/name 键，否则命名空间不显示。
+    tagOptions.value = [...group.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([ns, tags]) => ({
+        id: ns,
+        name: ns,
+        children: tags
+          .map(t => ({ id: t.id, name: t.name }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+  } catch {
+    tagOptions.value = []
+  }
+}
+
+// ── 产品查询状态（标签命名空间 Vendor / OSS 模式）───────────
+const productMode = ref(false)
+const productQueryLoading = ref(false)
+const tagSelectPanelRef = ref<InstanceType<typeof TagSelectPanel>>()
+const selectedVendorTag = ref<TagItem | null>(null)
+const selectedOssTag = ref<TagItem | null>(null)
+const versionStart = ref('')
+const versionStartOp = ref('gte')
+const versionEnd = ref('')
+const versionEndOp = ref('lte')
+
+/** 选中标签的显示名称（用于状态条） */
+const selectedVendorName = computed(() => selectedVendorTag.value?.name || '')
+const selectedOssName = computed(() => selectedOssTag.value?.name || '')
+
+/** TagSelectPanel 选中变更回调 */
+function onTagSelectChange(vendor: TagItem | null, oss: TagItem | null) {
+  selectedVendorTag.value = vendor
+  selectedOssTag.value = oss
+}
+
+/** TagSelectPanel 清空回调 */
+function onTagSelectClear() {
+  selectedVendorTag.value = null
+  selectedOssTag.value = null
+  productMode.value = false
+}
+
+/** 产品查询：基于选中的 Vendor / OSS 标签检索 POC。
+ *  厂商和产品可单独查询也可联合查询（AND 关系：同时满足两个标签）。
+ *  至少需选择一个标签。 */
+async function doProductQuery() {
+  const vendorId = tagSelectPanelRef.value?.getVendorId()
+  const ossId = tagSelectPanelRef.value?.getOssId()
+
+  if (!vendorId && !ossId) {
+    ElMessage.warning('请至少选择一个厂商或产品')
+    return
+  }
+
+  productQueryLoading.value = true
+  productMode.value = true
+  page.value = 1
+  try {
+    const params: Record<string, any> = {
+      page: page.value,
+      page_size: pageSize.value,
+    }
+    const vendorId = tagSelectPanelRef.value?.getVendorId()
+    const ossId = tagSelectPanelRef.value?.getOssId()
+    if (vendorId && ossId) {
+      // 同时选中厂商和产品：AND 逻辑，POC 必须同时满足两个标签
+      params.tag_ids_all = [vendorId, ossId].join(',')
+    } else if (vendorId) {
+      // 仅厂商：OR 逻辑（单标签无所谓 AND/OR）
+      params.tag_ids = String(vendorId)
+    } else if (ossId) {
+      // 仅产品：OR 逻辑（单标签无所谓 AND/OR）
+      params.tag_ids = String(ossId)
+    }
+    if (versionStart.value) {
+      params.version_start = versionStart.value
+      params.version_start_op = versionStartOp.value
+    }
+    if (versionEnd.value) {
+      params.version_end = versionEnd.value
+      params.version_end_op = versionEndOp.value
+    }
+    const res = await listPocs(params)
+    items.value = res.items as any
+    total.value = res.total
+  } catch {
+    items.value = []
+    total.value = 0
+  } finally {
+    productQueryLoading.value = false
+  }
+}
+
+function resetProductQuery() {
+  productMode.value = false
+  selectedVendorTag.value = null
+  selectedOssTag.value = null
+  versionStart.value = ''
+  versionStartOp.value = 'gte'
+  versionEnd.value = ''
+  versionEndOp.value = 'lte'
+  tagSelectPanelRef.value?.reset()
+  page.value = 1
+  loadData()
+}
+
+function exitProductMode() {
+  productMode.value = false
+  selectedVendorTag.value = null
+  selectedOssTag.value = null
+  versionStart.value = ''
+  versionStartOp.value = 'gte'
+  versionEnd.value = ''
+  versionEndOp.value = 'lte'
+  tagSelectPanelRef.value?.reset()
+  page.value = 1
+  loadData()
+}
 
 // ── 抽屉状态 ──────────────────────────────────────────────────
 const drawerVisible = ref(false)
@@ -611,6 +830,10 @@ function onSelectionChange(selection: any[]) {
 }
 
 async function loadData() {
+  if (productMode.value && (selectedVendorTag.value || selectedOssTag.value)) {
+    await doProductQuery()
+    return
+  }
   loading.value = true
   try {
     const params: any = {
@@ -621,7 +844,8 @@ async function loadData() {
     if (filters.severity.length) params.severity = filters.severity.join(',')
     if (filters.status.length) params.status = filters.status.join(',')
     if (filters.source.length) params.source = filters.source.join(',')
-    if (filters.format.length) params.format = filters.format.join(',')
+    const tagIds = filters.tagIds.filter((id: any) => typeof id === 'number')
+    if (tagIds.length) params.tag_ids = tagIds.join(',')
 
     const res = await listPocs(params)
     items.value = res.items
@@ -643,7 +867,7 @@ function resetFilters() {
   filters.severity = []
   filters.status = []
   filters.source = []
-  filters.format = []
+  filters.tagIds = []
   page.value = 1
   loadData()
 }
@@ -735,7 +959,6 @@ async function confirmExport() {
   }
 }
 
-onMounted(loadData)
 </script>
 
 <style scoped lang="scss">
@@ -747,24 +970,128 @@ onMounted(loadData)
   height: 100%;
 }
 
+/* ── 筛选栏 ── */
 .filter-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: $spacing-sm;
   margin-bottom: $spacing-md;
-  align-items: center;
+  padding: $spacing-sm $spacing-md;
+  background: rgba($accent, 0.02);
+  border: 1px solid rgba($accent, 0.06);
+  border-radius: $radius-md;
+  min-width: 0;
 }
 
+/* 常规/产品查询公用的字段区：单行、同间隔。
+   flex:1 使两栏字段区在同等可用空间下渲染为等宽，从而「查询/清空」
+   按钮左缘逐一平齐，末列（来源 vs 最高版本号）右缘对齐。 */
+.query-fields {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: $spacing-sm;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 两栏标签样式统一（均为 4 字，宽度天然一致） */
+.filter-bar-label,
+.product-query-label {
+  font-size: $font-caption;
+  font-weight: 600;
+  color: $text-secondary;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  margin-right: $spacing-xs;
+  flex-shrink: 0;
+}
+
+/* 常规栏：搜索框为可变宽字段，吸收剩余空间使末列（来源）右缘贴齐字段区右缘 */
 .filter-search {
-  width: 220px;
+  flex: 1 1 220px;
+  min-width: 120px;
 }
 
 .filter-select {
-  width: 130px;
+  flex: 0 0 130px;
 }
 
+.filter-cascader {
+  flex: 0 0 130px;
+}
+
+/* 常规/产品查询的「查询」「清空」按钮：共用类名、同一样式 */
+.filter-queries__btn,
 .filter-btn {
   flex-shrink: 0;
+}
+
+/* ── 产品查询面板 ── */
+.product-query-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-md;
+  background: rgba($accent, 0.04);
+  border: 1px solid rgba($accent, 0.12);
+  border-radius: $radius-md;
+  min-width: 0;
+}
+
+/* 产品栏：TagSelectPanel 内嵌的两个下拉框均设为等额可伸缩，
+   二者 flex-grow 相同 → 平分剩余空间 → 渲染宽度始终相等；
+   末列（最高版本号）仍贴齐字段区右缘。 */
+:deep(.tag-select-panel) {
+  flex: 1 1 auto;
+  min-width: 200px;
+}
+
+:deep(.tag-select-panel .tag-namespace-select) {
+  flex: 1 1 156px;
+  min-width: 100px;
+}
+
+:deep(.op-select) {
+  flex: 0 0 80px;
+}
+
+.version-input {
+  flex: 0 0 130px;
+}
+
+/* ── 产品查询状态条（仅产品模式）── 与上方两栏解耦，独立成行，
+   不挤压查询/清空按钮，避免内容被覆盖或遮挡。 */
+.product-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  padding: $spacing-xs $spacing-md;
+  margin-bottom: $spacing-md;
+  background: rgba($accent, 0.06);
+  border: 1px solid rgba($accent, 0.15);
+  border-radius: $radius-md;
+}
+
+.product-mode-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  min-width: 0;
+  font-size: $font-caption;
+  color: $accent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .hint-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+  }
 }
 
 .batch-bar {
@@ -1102,5 +1429,35 @@ onMounted(loadData)
   .footer-btn {
     width: 100%;
   }
+}
+</style>
+
+<!-- 非 scoped：el-select 的下拉面板会被 teleport 到 body，
+     不携带本组件 scope id，故用 popper-class 在全局作用域内渲染。 -->
+<style lang="scss">
+.tag-select-popper .option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.tag-select-popper .option-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-select-popper .option-slug {
+  font-size: 12px;
+  color: var(--vs-text-disabled);
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+}
+
+.tag-select-popper .option-count {
+  font-size: 11px;
+  color: var(--vs-accent);
+  white-space: nowrap;
 }
 </style>

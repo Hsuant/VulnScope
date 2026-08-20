@@ -41,12 +41,16 @@ class PocQueryParams:
         source: str | None = Query(default=None, description="按来源筛选"),
         format: str | None = Query(default=None, description="按格式筛选"),
         author: str | None = Query(default=None, description="按作者筛选"),
-        tag_ids: str | None = Query(default=None, description="标签 ID 列表（逗号分隔）"),
+        tag_ids: str | None = Query(default=None, description="标签 ID 列表（逗号分隔，OR 逻辑）"),
+        tag_ids_all: str | None = Query(
+            default=None, description="标签 ID 列表（逗号分隔，AND 逻辑，须同时满足所有标签）"
+        ),
         cve: str | None = Query(default=None, description="CVE 编号搜索"),
         category_id: int | None = Query(default=None, description="分类 ID"),
         created_at_from: str | None = Query(default=None, description="创建起始时间"),
         created_at_to: str | None = Query(default=None, description="创建截止时间"),
         q: str | None = Query(default=None, description="关键字搜索（名称/标题/描述）"),
+        search_content: bool = Query(default=False, description="搜索范围扩展到 POC 正文 content"),
     ):
         self.page = page
         self.page_size = page_size
@@ -58,11 +62,15 @@ class PocQueryParams:
         self.format = format
         self.author = author
         self.tag_ids = [int(x.strip()) for x in tag_ids.split(",") if x.strip()] if tag_ids else None
+        self.tag_ids_all = (
+            [int(x.strip()) for x in tag_ids_all.split(",") if x.strip()] if tag_ids_all else None
+        )
         self.cve = cve
         self.category_id = category_id
         self.created_at_from = created_at_from
         self.created_at_to = created_at_to
         self.q = q
+        self.search_content = search_content
 
 
 @router.get("")
@@ -88,11 +96,13 @@ def list_pocs(
         format=params.format,
         author=params.author,
         tag_ids=params.tag_ids,
+        tag_ids_all=params.tag_ids_all,
         cve=params.cve,
         category_id=params.category_id,
         created_at_from=params.created_at_from,
         created_at_to=params.created_at_to,
         q=params.q,
+        search_content=params.search_content,
     )
 
     # 转换为列表项格式
@@ -112,13 +122,15 @@ def search_pocs(
     q: str = Query(..., min_length=1, max_length=200, description="搜索关键词"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    search_content: bool = Query(default=False, description="搜索范围扩展到 POC 正文 content"),
 ) -> dict:
-    """关键字搜索 POC（名称/标题/描述/CVE）。"""
+    """关键字搜索 POC（名称/标题/描述/CVE，search_content 扩展正文）。"""
     items, total = poc_service.list_pocs(
         db,
         q=q,
         page=page,
         page_size=page_size,
+        search_content=search_content,
     )
     list_items = [poc_service._build_poc_list_item(p) for p in items]
     result = Page.create(list_items, total, page, page_size)
