@@ -254,6 +254,10 @@ class RequestMetricsMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next) -> Any:  # noqa: ANN001
         handles = self._get_handles()
+        # 在请求处理前捕获 request_id（中间件顺序保证此处已就绪，显式捕获更稳健）。
+        from app.core.request_id import get_request_id
+
+        request_id = get_request_id()
         start = time.perf_counter()
         handles["http_inflight"].inc()
         try:
@@ -265,18 +269,20 @@ class RequestMetricsMiddleware(BaseHTTPMiddleware):
         status = response.status_code
         handles["http_total"].inc(method=method, status=str(status))
         handles["http_duration"].observe(duration, method=method)
-        # 访问日志（DEBUG 级别，仅写入文件供回溯分析；控制台见 uvicorn 原生日志）。
+        # 访问日志（INFO 级别，写入文件供回溯分析；控制台见 uvicorn 原生日志）。
         from app.core.logging import get_logger
-        from app.core.request_id import get_request_id
 
-        get_logger("access").debug(
-            "request",
+        get_logger("access").info(
+            "%s %s -> %s",
+            method,
+            str(request.url.path),
+            status,
             extra={
                 "method": method,
                 "path": str(request.url.path),
                 "status": status,
                 "duration_ms": round(duration * 1000, 1),
-                "request_id": get_request_id(),
+                "request_id": request_id,
                 "client": request.client.host if request.client else "",
             },
         )
