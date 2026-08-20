@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 
 from app.api.deps import CurrentUser, DbSession, require_roles
 from app.core.exceptions import AppError, ErrorCode
@@ -119,7 +119,7 @@ async def import_vulns(
     user: User = Depends(require_roles(Role.EDITOR, Role.ADMIN)),
     file: UploadFile | None = None,
     files: list[UploadFile] = File(default=[]),
-    content: str | None = Query(default=None, description="CVE 内容文本（粘贴模式）"),
+    content: str | None = Form(default=None, description="CVE 内容文本（粘贴模式）"),
 ) -> dict:
     """批量导入 CVE（需要 editor 或 admin 角色）。
 

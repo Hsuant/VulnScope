@@ -6,7 +6,7 @@ GET  /api/v1/export — 导出 POC（JSON / nuclei）
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 
 from app.api.deps import CurrentUser, DbSession, require_roles
 from app.core.security import Role
@@ -24,9 +24,9 @@ async def import_pocs(
     user: User = Depends(require_roles(Role.EDITOR, Role.ADMIN)),
     file: UploadFile | None = None,
     files: list[UploadFile] = File(default=[]),
-    content: str | None = Query(default=None, description="POC 内容文本（粘贴模式）"),
-    source: str = Query(default="imported", description="来源类型"),
-    default_status: str = Query(default="draft", description="导入后默认状态"),
+    content: str | None = Form(default=None, description="POC 内容文本（粘贴模式）"),
+    source: str = Form(default="imported", description="来源类型"),
+    default_status: str = Form(default="draft", description="导入后默认状态"),
 ) -> dict:
     """导入 POC（支持单文件 / 批量文件上传 / 文本粘贴）。
 

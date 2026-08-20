@@ -182,10 +182,10 @@ class TestImport:
         client: TestClient, auth_header: dict, content: str, filename: str | None = None
     ) -> dict:
         """辅助：通过文本粘贴导入。"""
-        params = {"content": content, "source": "imported"}
+        data = {"content": content, "source": "imported"}
         if filename:
-            params["filename"] = filename
-        resp = client.post("/api/v1/import", params=params, headers=auth_header)
+            data["filename"] = filename
+        resp = client.post("/api/v1/import", data=data, headers=auth_header)
         assert resp.status_code == 200, f"import failed: {resp.text}"
         return resp.json()["data"]
 
@@ -228,12 +228,12 @@ class TestImport:
 
     def test_import_no_auth(self, client: TestClient) -> None:
         """未认证导入返回 401。"""
-        resp = client.post("/api/v1/import", params={"content": SAMPLE_NUCLEI_YAML})
+        resp = client.post("/api/v1/import", data={"content": SAMPLE_NUCLEI_YAML})
         assert resp.status_code == 401
 
     def test_import_empty_content(self, client: TestClient, auth_header: dict) -> None:
         """空内容导入返回 422。"""
-        resp = client.post("/api/v1/import", params={}, headers=auth_header)
+        resp = client.post("/api/v1/import", data={}, headers=auth_header)
         assert resp.status_code == 422
 
     def test_import_with_cve(self, client: TestClient, auth_header: dict) -> None:
@@ -424,8 +424,8 @@ http:
         db.commit()
 
         # 导入含 rce/oob/struts 的 POC
-        params = {"content": self.SAMPLE_WITH_TAGS, "source": "imported"}
-        resp = client.post("/api/v1/import", params=params, headers=auth_header)
+        data = {"content": self.SAMPLE_WITH_TAGS, "source": "imported"}
+        resp = client.post("/api/v1/import", data=data, headers=auth_header)
         assert resp.status_code == 200
         result = resp.json()["data"]
         assert result["success"] == 1
@@ -446,8 +446,8 @@ http:
     def test_import_poc_ns_tags(self, client: TestClient, auth_header: dict, db: Session) -> None:
         """导入 namespace:name 格式的标签。"""
         # 导入含 type:cve, technique:rce 的 POC
-        params = {"content": self.SAMPLE_WITH_NS_TAGS, "source": "imported"}
-        resp = client.post("/api/v1/import", params=params, headers=auth_header)
+        data = {"content": self.SAMPLE_WITH_NS_TAGS, "source": "imported"}
+        resp = client.post("/api/v1/import", data=data, headers=auth_header)
         assert resp.status_code == 200
         result = resp.json()["data"]
         assert result["success"] == 1

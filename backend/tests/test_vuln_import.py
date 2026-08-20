@@ -196,7 +196,7 @@ class TestVulnImportApi:
     def test_import_paste_success(self, client: TestClient, auth_header: dict) -> None:
         resp = client.post(
             "/api/v1/vulns/import",
-            params={"content": JSON_ARRAY},
+            data={"content": JSON_ARRAY},
             headers=auth_header,
         )
         assert resp.status_code == 200
@@ -205,7 +205,7 @@ class TestVulnImportApi:
         assert data["created"] == 2
 
     def test_import_no_auth(self, client: TestClient) -> None:
-        resp = client.post("/api/v1/vulns/import", params={"content": JSON_ARRAY})
+        resp = client.post("/api/v1/vulns/import", data={"content": JSON_ARRAY})
         assert resp.status_code == 401
 
     def test_import_viewer_forbidden(self, client: TestClient) -> None:
@@ -220,7 +220,7 @@ class TestVulnImportApi:
         ).json()["data"]["access_token"]
         resp = client.post(
             "/api/v1/vulns/import",
-            params={"content": JSON_ARRAY},
+            data={"content": JSON_ARRAY},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 403
