@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, Request
@@ -17,12 +16,13 @@ from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from app.core.cache import get_cache
+from app.core.logging import get_logger
 from app.db.init_db import _verify_schema
 from app.db.session import get_db
 from app.plugins.registry import registry
 from app.schemas.common import ok
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["health"])
 
@@ -50,6 +50,8 @@ def _probe_db_detail(db: Session) -> dict:
 
 def _probe_cache() -> dict:
     """缓存自检：写入→读取→删除闭环，验证 get/set/delete 全链路。"""
+    from app.core.config import settings
+
     probe = get_cache()
     key = "health:probe"
     value = "pong"
@@ -60,20 +62,33 @@ def _probe_cache() -> dict:
     return {
         "component": "cache",
         "status": "up" if up else "down",
+        "backend": settings.CACHE_BACKEND,
+        "msg": f"cache backend={settings.CACHE_BACKEND}, probe {'ok' if up else 'failed'}",
         "error": None if up else f"回读失败: {readback!r}",
     }
 
 
 def _probe_plugins() -> dict:
-    """插件加载状态：统计注册表各槽位插件数（启动期已 discover）。"""
+    """插件加载状态：列出每个插件的名称 + 版本 + 启用状态（启动期已 discover）。"""
     entries = registry.list()
-    slots: dict[str, int] = {}
-    for entry in entries:
-        slots[entry.slot] = slots.get(entry.slot, 0) + 1
+    # 按槽位分组，每组内按名称排序，便于阅读。
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in sorted(entries, key=lambda e: (e.slot, e.name)):
+        grouped.setdefault(entry.slot, []).append(
+            {
+                "name": entry.name,
+                "version": entry.version,
+                "enabled": entry.enabled,
+            }
+        )
+    total = len(entries)
     return {
         "component": "plugins",
         "status": "up" if entries else "degraded",  # 空注册表为 degrade 而非 down
-        "detail": slots,
+        "total": total,
+        "slots": {slot: len(items) for slot, items in grouped.items()},
+        "plugins": grouped,
+        "msg": f"{total} plugins loaded across {len(grouped)} slots",
         "error": None,
     }
 
@@ -117,7 +132,7 @@ def health_detail(request: Request, db: Session = Depends(get_db)) -> dict | JSO
         elif p["component"] == "cache":
             handles["cache_health"].set(1 if status == "up" else 0)
         elif p["component"] == "plugins":
-            handles["plugins_loaded"].set(len(p.get("detail", {})))
+            handles["plugins_loaded"].set(p.get("total", 0))
 
     all_up = all(p["status"] == "up" for p in probes)
     payload = {"status": "ok" if all_up else "degraded", "components": probes}
