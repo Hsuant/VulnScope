@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ErrorCode(str, Enum):
@@ -110,6 +115,22 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        # 业务异常按级别记录：4xx 客户端错误记 WARNING（多为参数/权限问题），
+        # 5xx 服务端错误记 ERROR（需人工介入）。request_id 贯穿日志与响应体。
+        log_level = logging.ERROR if exc.http_status >= 500 else logging.WARNING
+        logger.log(
+            log_level,
+            "app error: %s",
+            exc.message,
+            extra={
+                "error_code": exc.code.value,
+                "http_status": exc.http_status,
+                "request_id": request.headers.get("X-Request-ID", ""),
+                "path": request.url.path,
+                "detail": exc.detail,
+            },
+            exc_info=log_level >= logging.ERROR,
+        )
         return JSONResponse(
             status_code=exc.http_status,
             headers=exc.headers or None,
@@ -123,6 +144,19 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        # 未捕获异常：必须记录完整 traceback + request_id，否则 500 错误将
+        # 在日志中完全不可见，无法事后定位。exc_info=True 触发 traceback 写入。
+        logger.error(
+            "unhandled exception: %s",
+            exc,
+            extra={
+                "error_code": ErrorCode.INTERNAL_ERROR.value,
+                "request_id": request.headers.get("X-Request-ID", ""),
+                "path": request.url.path,
+                "method": request.method,
+            },
+            exc_info=True,
+        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
