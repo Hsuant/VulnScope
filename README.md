@@ -12,6 +12,10 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
+<p align="center">
+  <a href="README.en.md">English</a> | <b>中文</b>
+</p>
+
 ---
 
 ## 特性
@@ -37,34 +41,57 @@
 - Node.js 18+
 - 可选：MySQL 8.0（生产环境）
 
-### 后端
+### 环境配置
+
+后端启动前需要将 `.env.example` 复制为 `.env`：
+
+```bash
+# 本地开发：后端环境配置
+cd backend
+
+cp .env.example .env
+
+# 创建虚拟环境并安装依赖
+python -m venv .venv
+.venv/Scripts/pip install -e ".[dev]"
+```
+
+关键环境变量说明：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `VULNSCOPE_SECRET_KEY` | `change-me-...` | JWT 签名密钥，生产环境务必改为随机值（`openssl rand -hex 32`） |
+| `VULNSCOPE_ADMIN_PASSWORD` | `change-me-...` | 默认管理员密码，生产环境务必修改 |
+| `VULNSCOPE_ADMIN_USERNAME` | `admin` | 默认管理员用户名 |
+| `VULNSCOPE_ADMIN_EMAIL` | `admin@vulnscope.local` | 默认管理员邮箱 |
+| `VULNSCOPE_APP_ENV` | `dev` | 运行环境（dev / prod）；prod 触发安全启动校验 |
+| `VULNSCOPE_DB_BACKEND` | `sqlite` | 数据库后端（sqlite / mysql） |
+| `VULNSCOPE_LOG_LEVEL` | `INFO` | 日志级别（DEBUG / INFO / WARNING / ERROR） |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED` | `true` | 登录限流开关 |
+
+> 完整配置项以 `backend/app/core/config.py` 为准，所有变量均带 `VULNSCOPE_` 前缀。生产部署时 `docker compose` 通过 `${VULNSCOPE_SECRET_KEY:?}` 强制注入，缺失即拒绝启动。
+
+### 后端启动
 
 ```bash
 # 进入后端目录
 cd backend
 
-# 创建虚拟环境
-python -m venv .venv
+# 一键启动（自动检测虚拟环境、首次运行自动初始化数据库）
+start.bat
 
-# 安装依赖（含开发依赖）
-.venv/Scripts/pip install -e ".[dev]"
-
-# 复制环境变量配置
-cp .env.example .env
-
-# 初始化数据库（建全部表，不含种子数据，幂等）
-.venv/Scripts/python -m app.db.init_db
-
-# 启动开发服务器（自动 reload；启动时建表并写入内置角色/管理员）
-.venv/Scripts/uvicorn app.main:app --reload --port 8000
+# 或指定端口、跳过数据库初始化
+start.bat --port 8080 --no-migrate
 ```
+
+> `start.bat` 适用于 Windows，`start.sh` 适用于 Git Bash / Linux。启动脚本会自动检查虚拟环境、首次运行时自动初始化数据库表结构，然后启动开发服务器（`--reload`）。
 
 > **数据库初始化**：本项目不使用 Alembic 迁移，ORM 模型（`backend/app/models/`）是表结构的唯一真相。
 > - `python -m app.db.init_db` 仅按模型元数据 `create_all` 建全部缺失表（**不写任何种子数据**）；`--reset` 清空重建（**会丢数据**，用于模型字段变更后重建开发库）。
 > - 内置角色（viewer/editor/admin）与默认管理员（`admin` / `admin123`，可经 `.env` 配置）由应用启动 `lifespan` 按需写入，不在 `init_db` 命令产出。
 > - 注意 `create_all` 只建不存在的表、不会给已有表补列；字段变更后请用 `--reset` 或删除 `vulnscope.db` 后重启。
 
-### 前端
+### 前端启动
 
 ```bash
 # 进入前端目录

@@ -12,6 +12,10 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
+<p align="center">
+  <b>English</b> | <a href="README.md">中文</a>
+</p>
+
 ---
 
 ## Features
@@ -37,27 +41,51 @@
 - Node.js 18+
 - Optional: MySQL 8.0 (production)
 
+### Environment Configuration
+
+Before starting the backend, copy `.env.example` to `.env`:
+
+```bash
+# Local development: copy to backend directory
+cp .env.example backend/.env
+
+# Docker deployment: copy to project root (read by docker compose)
+cp .env.example .env
+```
+
+Key environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VULNSCOPE_SECRET_KEY` | `change-me-...` | JWT signing key, generate with `openssl rand -hex 32` |
+| `VULNSCOPE_ADMIN_PASSWORD` | `change-me-...` | Default admin password |
+| `VULNSCOPE_ADMIN_USERNAME` | `admin` | Default admin username |
+| `VULNSCOPE_ADMIN_EMAIL` | `admin@vulnscope.local` | Default admin email |
+| `VULNSCOPE_APP_ENV` | `dev` | Runtime environment (dev / prod); prod triggers startup security validation |
+| `VULNSCOPE_DB_BACKEND` | `sqlite` | Database backend (sqlite / mysql) |
+| `VULNSCOPE_LOG_LEVEL` | `INFO` | Log level (DEBUG / INFO / WARNING / ERROR) |
+| `VULNSCOPE_LOGIN_RATE_LIMIT_ENABLED` | `true` | Login rate limiting switch |
+
+> The full set of options is defined in `backend/app/core/config.py`; every variable uses the `VULNSCOPE_` prefix. In production, `docker compose` enforces `${VULNSCOPE_SECRET_KEY:?}` and refuses to start if missing.
+
 ### Backend
 
 ```bash
 # Enter backend directory
 cd backend
 
-# Create virtual environment
+# Create virtual environment and install dependencies
 python -m venv .venv
-
-# Install dependencies (including dev)
 .venv/Scripts/pip install -e ".[dev]"
 
-# Copy environment config
-cp .env.example .env
+# One-click start (auto-detects venv, initializes DB on first run)
+start.bat
 
-# Initialize the database (creates all tables; no seed data; idempotent)
-.venv/Scripts/python -m app.db.init_db
-
-# Start development server (auto-reload; on startup it builds tables and seeds roles/admin)
-.venv/Scripts/uvicorn app.main:app --reload --port 8000
+# Or specify port, skip DB initialization
+start.bat --port 8080 --no-migrate
 ```
+
+> `start.bat` is for Windows, `start.sh` is for Git Bash / Linux. The startup script auto-detects the virtual environment, initializes the database schema on first run, then starts the dev server with `--reload`.
 
 > **Database initialization**: This project does **not** use Alembic migrations. The ORM models (`backend/app/models/`) are the single source of truth for the schema.
 > - `python -m app.db.init_db` only runs `Base.metadata.create_all` to create any missing tables — **it writes no seed data**. Use `--reset` to drop and recreate everything (**destroys data**, used to rebuild the dev DB after model/field changes).
