@@ -38,6 +38,8 @@ class Settings(BaseSettings):
 
     # 日志（控制台文本 + 文件 JSON，见 app/core/logging.py）
     LOG_LEVEL: str = "INFO"  # DEBUG / INFO / WARNING / ERROR
+    LOG_RETENTION_DAYS: int = 30  # 日志文件保留天数
+    LOG_DIR: str = ""  # 日志目录覆盖；空则按哨兵自动探测项目根/logs
 
     # 数据库
     DB_BACKEND: str = "sqlite"
