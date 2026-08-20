@@ -2,6 +2,7 @@
   <div class="poc-import-view">
     <PageHeader title="导入 POC" description="支持 Nuclei、Pocsuite3、Xray、Goby 模板及 Markdown 文档，支持批量多文件，单文件限制 10MB">
       <template #actions>
+        <el-button :icon="Document" @click="templateDrawer = true">查看模板</el-button>
         <el-button v-if="result" @click="resetImport" :icon="Refresh">继续导入</el-button>
         <el-button type="primary" @click="$router.push('/pocs')" :icon="Document">查看 POC 列表</el-button>
       </template>
@@ -235,6 +236,19 @@
         </div>
       </transition>
     </div>
+
+    <!-- 模板抽屉 -->
+    <el-drawer v-model="templateDrawer" title="导入模板" size="640px" direction="rtl">
+      <el-tabs v-model="activeTemplate">
+        <el-tab-pane v-for="t in POC_TEMPLATE_LIST" :key="t.key" :label="t.label" :name="t.key">
+          <div class="template-bar">
+            <span class="template-ext">{{ t.ext }}</span>
+            <el-button text size="small" :icon="CopyDocument" @click="copyTemplate(t.content)">复制</el-button>
+          </div>
+          <pre class="template-code"><code>{{ t.content }}</code></pre>
+        </el-tab-pane>
+      </el-tabs>
+    </el-drawer>
   </div>
 </template>
 
@@ -242,9 +256,11 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { UploadFilled, EditPen, Document, Close, Upload, Refresh, InfoFilled, WarningFilled, CircleCheck } from '@element-plus/icons-vue'
+import { UploadFilled, EditPen, Document, Close, Upload, Refresh, InfoFilled, WarningFilled, CircleCheck, CopyDocument } from '@element-plus/icons-vue'
 import { importPocs } from '@/api/import-export'
 import { SOURCE_OPTIONS, STATUS_OPTIONS } from '@/utils/constants'
+import { POC_TEMPLATE_LIST } from '@/utils/pocTemplates'
+import { copyToClipboard } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import type { PocImportResult } from '@/types/poc'
 
@@ -258,6 +274,8 @@ const importSource = ref('imported')
 const defaultStatus = ref('draft')
 const importing = ref(false)
 const result = ref<PocImportResult | null>(null)
+const templateDrawer = ref(false)
+const activeTemplate = ref<'nuclei' | 'json' | 'pocsuite3' | 'markdown'>('nuclei')
 
 const hasContent = computed(() => selectedFiles.value.length > 0 || !!pastedContent.value.trim())
 
@@ -351,6 +369,11 @@ async function handleImport() {
   } finally {
     importing.value = false
   }
+}
+
+async function copyTemplate(content: string) {
+  await copyToClipboard(content)
+  ElMessage.success('模板已复制')
 }
 
 function resetImport() {
@@ -1010,5 +1033,37 @@ function resetImport() {
   border-radius: 50%;
   background: $accent;
   opacity: 0.5;
+}
+
+// ── 模板抽屉 ──────────────────────────────────────────────────
+.template-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-sm;
+}
+
+.template-ext {
+  font-size: $font-caption;
+  color: $text-disabled;
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+}
+
+.template-code {
+  margin: 0;
+  padding: $spacing-md;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  overflow: auto;
+  max-height: 60vh;
+
+  code {
+    font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: $text-secondary;
+    white-space: pre;
+  }
 }
 </style>
