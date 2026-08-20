@@ -144,4 +144,5 @@ export interface PocQueryParams {
   created_at_from?: string
   created_at_to?: string
   q?: string
+  search_content?: boolean
 }
