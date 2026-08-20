@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import AppError, ErrorCode, NotFoundError
 from app.core.timeutil import iso_utc
@@ -56,12 +56,13 @@ def list_vulns(
 
 
 def get_vuln(db: Session, vuln_id: int) -> dict:
-    """获取 CVE 详情（含 POC 数量）。"""
-    vuln = db.get(Vuln, vuln_id)
+    """获取 CVE 详情（含 POC 数量与全部关联 POC 摘要，供反向导航）。"""
+    stmt = select(Vuln).options(selectinload(Vuln.pocs).selectinload(PocVuln.poc)).where(Vuln.id == vuln_id)
+    vuln = db.scalar(stmt)
     if vuln is None:
         raise NotFoundError("CVE", str(vuln_id))
-    poc_count = db.scalar(select(func.count()).select_from(PocVuln).where(PocVuln.vuln_id == vuln.id)) or 0
-    return _vuln_to_dict(vuln, poc_count)
+    pocs = _extract_pocs(vuln)
+    return _vuln_to_dict(vuln, len(pocs), pocs)
 
 
 def update_vuln(
@@ -113,20 +114,19 @@ def update_vuln(
         ip,
     )
     db.commit()
-    db.refresh(vuln)
-    poc_count = db.scalar(select(func.count()).select_from(PocVuln).where(PocVuln.vuln_id == vuln.id)) or 0
-    return _vuln_to_dict(vuln, poc_count)
+    return get_vuln(db, vuln_id)
 
 
 def get_vuln_by_cve_id(db: Session, cve_id: str) -> dict:
-    """按 CVE 编号获取漏洞详情。"""
-    from sqlalchemy import select as sql_select
-
-    vuln = db.scalar(sql_select(Vuln).where(Vuln.cve_id == cve_id))
+    """按 CVE 编号获取漏洞详情（含全部关联 POC 摘要）。"""
+    stmt = (
+        select(Vuln).options(selectinload(Vuln.pocs).selectinload(PocVuln.poc)).where(Vuln.cve_id == cve_id)
+    )
+    vuln = db.scalar(stmt)
     if vuln is None:
         raise NotFoundError("CVE", cve_id)
-    poc_count = db.scalar(select(func.count()).select_from(PocVuln).where(PocVuln.vuln_id == vuln.id)) or 0
-    return _vuln_to_dict(vuln, poc_count)
+    pocs = _extract_pocs(vuln)
+    return _vuln_to_dict(vuln, len(pocs), pocs)
 
 
 def create_vuln(
@@ -287,8 +287,27 @@ def _create_audit_log(
     db.add(log)
 
 
-def _vuln_to_dict(vuln: Vuln, poc_count: int = 0) -> dict:
-    """将 Vuln ORM 对象转为字典。"""
+def _extract_pocs(vuln: Vuln) -> list[dict]:
+    """从 Vuln 提取关联 POC 摘要列表（供 CVE 详情反向导航）。"""
+    return [
+        {
+            "id": pv.poc.id,
+            "uuid": pv.poc.uuid,
+            "name": pv.poc.name,
+            "title": pv.poc.title,
+            "severity": pv.poc.severity,
+            "format": pv.poc.format,
+            "source": pv.poc.source,
+            "status": pv.poc.status,
+            "version": pv.poc.version,
+        }
+        for pv in vuln.pocs
+        if pv.poc is not None
+    ]
+
+
+def _vuln_to_dict(vuln: Vuln, poc_count: int = 0, pocs: list[dict] | None = None) -> dict:
+    """将 Vuln ORM 对象转为字典（详情含 pocs 清单，列表不含）。"""
     return {
         "id": vuln.id,
         "cve_id": vuln.cve_id,
@@ -302,6 +321,7 @@ def _vuln_to_dict(vuln: Vuln, poc_count: int = 0) -> dict:
         "remediation": vuln.remediation,
         "reference": vuln.reference,
         "poc_count": poc_count,
+        "pocs": pocs or [],
         "created_at": iso_utc(vuln.created_at) if hasattr(vuln, "created_at") else None,
         "updated_at": iso_utc(vuln.updated_at) if hasattr(vuln, "updated_at") else None,
     }

@@ -164,6 +164,32 @@
           </div>
           <p v-else class="no-data">暂无参考链接</p>
         </section>
+
+        <!-- 关联 POC 清单 -->
+        <section class="detail-section">
+          <header class="section-head">
+            <h3 class="section-title"><i class="title-bar" />关联 POC</h3>
+            <span v-if="vuln.pocs?.length" class="section-count">{{ vuln.pocs.length }} 个</span>
+          </header>
+          <div v-if="vuln.pocs?.length" class="poc-list">
+            <div
+              v-for="poc in vuln.pocs"
+              :key="poc.id"
+              class="poc-list-item"
+              @click="$router.push(`/pocs/${poc.id}`)"
+            >
+              <div class="poc-item-left">
+                <span class="poc-item-name">{{ poc.name }}</span>
+                <span v-if="poc.title" class="poc-item-title">{{ poc.title }}</span>
+              </div>
+              <div class="poc-item-right">
+                <SeverityBadge v-if="poc.severity" :severity="poc.severity" />
+                <span class="poc-item-meta">{{ poc.source }} · {{ poc.format }}</span>
+              </div>
+            </div>
+          </div>
+          <p v-else class="no-data">暂无关联 POC</p>
+        </section>
       </div>
     </div>
 
@@ -184,7 +210,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Back, CopyDocument, Cpu, Delete, Edit, Link, Tools } from '@element-plus/icons-vue'
 import { deleteVuln, getVuln } from '@/api/vuln'
-import { listPocs } from '@/api/poc'
 import { usePermission } from '@/composables/usePermission'
 import { copyToClipboard, formatDate } from '@/utils/format'
 import { parseCvssVector } from '@/utils/cvss'
@@ -192,7 +217,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import SeverityBadge from '@/components/common/SeverityBadge.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import MarkdownRenderer from '@/components/poc/MarkdownRenderer.vue'
-import type { AffectedProduct, VulnItem } from '@/types/vuln'
+import type { AffectedProduct, PocBrief, VulnItem } from '@/types/vuln'
 
 const route = useRoute()
 const router = useRouter()
@@ -219,23 +244,13 @@ async function loadData() {
 }
 
 /** 跳转到关联 POC 的详情页（取首个关联 POC；无关联则提示）。 */
-async function goRelatedPoc() {
+function goRelatedPoc() {
   if (!vuln.value) return
-  if (!vuln.value.poc_count) {
+  if (!vuln.value.pocs?.length) {
     ElMessage.info('暂无关联 POC')
     return
   }
-  pocLoading.value = true
-  try {
-    const res = await listPocs({ cve: vuln.value.cve_id, page: 1, page_size: 1 })
-    if (res.items.length) {
-      router.push(`/pocs/${res.items[0].id}`)
-    } else {
-      ElMessage.info('暂无关联 POC')
-    }
-  } finally {
-    pocLoading.value = false
-  }
+  router.push(`/pocs/${vuln.value.pocs[0].id}`)
 }
 
 /** 打开删除确认框。 */
@@ -572,5 +587,70 @@ onMounted(loadData)
 /* 描述/正文阅读体验 */
 .prose :deep(.markdown-body) {
   font-size: $font-body;
+}
+
+/* ── 关联 POC 清单 ── */
+.poc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid $border-subtle;
+  border-radius: $radius-sm;
+  overflow: hidden;
+}
+
+.poc-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  cursor: pointer;
+  transition: background $transition-fast;
+  border-bottom: 1px solid $border-subtle;
+
+  &:last-child { border-bottom: none; }
+
+  &:hover {
+    background: $bg-tertiary;
+  }
+}
+
+.poc-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.poc-item-name {
+  font-size: $font-body;
+  font-weight: 500;
+  color: $text-primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poc-item-title {
+  font-size: $font-caption;
+  color: $text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poc-item-right {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-shrink: 0;
+}
+
+.poc-item-meta {
+  font-size: 11px;
+  color: $text-disabled;
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
 }
 </style>

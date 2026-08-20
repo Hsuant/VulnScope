@@ -18,6 +18,18 @@ export interface ReferenceLink {
   label: string | null
 }
 
+export interface PocBrief {
+  id: number
+  uuid: string
+  name: string
+  title: string | null
+  severity: string
+  format: string
+  source: string
+  status: string
+  version: number
+}
+
 export interface VulnItem {
   id: number
   cve_id: string
@@ -31,6 +43,7 @@ export interface VulnItem {
   remediation: Remediation | null
   reference: ReferenceLink[] | null
   poc_count: number
+  pocs: PocBrief[]
   created_at: string | null
   updated_at: string | null
 }
