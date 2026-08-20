@@ -28,6 +28,7 @@ const JSON_TEMPLATE = `[
       {
         "vendor": "apache",
         "product": "log4j",
+        "version": "2.14.1",
         "version_start": "2.0",
         "version_start_type": "including",
         "version_end": "2.14.1",
@@ -45,9 +46,9 @@ const JSON_TEMPLATE = `[
 ]
 `
 
-const JSONL_TEMPLATE = `{"cve_id":"CVE-2021-44228","vendor":"apache","title":"Apache Log4j2 JNDI RCE","cvss":9.8,"severity":"critical","cvss_metrics":"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
-{"cve_id":"CVE-2021-45046","vendor":"apache","cvss":9.0,"severity":"critical"}
-{"cve_id":"CVE-2022-22222","vendor":"nginx","title":"示例漏洞","cvss":7.5,"severity":"high"}
+const JSONL_TEMPLATE = `{"cve_id":"CVE-2021-44228","vendor":"apache","title":"Apache Log4j2 JNDI RCE","description":"Log4j2 <=2.14.1 JNDI 特性未限制 LDAP/RMI 查找，可触发远程代码执行。","cvss":9.8,"severity":"critical","cvss_metrics":"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H","product":[{"vendor":"apache","product":"log4j","version":"2.14.1","version_start":"2.0","version_start_type":"including","version_end":"2.14.1","version_end_type":"including"}],"remediation":{"mitigation":"升级到 Apache Log4j 2.15.0 或更高版本。","workaround":"设置环境变量 LOG4J_FORMAT_MSG_NO_LOOKUPS=true。"},"reference":[{"url":"https://nvd.nist.gov/vuln/detail/CVE-2021-44228","label":"NVD"}]}
+{"cve_id":"CVE-2021-45046","vendor":"apache","title":"Apache Log4j2 拒绝服务","description":"Log4j2 2.15.0 修复不完整，存在拒绝服务风险。","cvss":9.0,"severity":"critical","cvss_metrics":"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
+{"cve_id":"CVE-2022-22222","vendor":"nginx","title":"示例漏洞","description":"这是一个示例漏洞描述。","cvss":7.5,"severity":"high","cvss_metrics":"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}
 `
 
 const YAML_TEMPLATE = `- cve_id: CVE-2021-44228
@@ -61,6 +62,7 @@ const YAML_TEMPLATE = `- cve_id: CVE-2021-44228
   product:
     - vendor: apache
       product: log4j
+      version: "2.14.1"
       version_start: "2.0"
       version_start_type: including
       version_end: "2.14.1"
@@ -74,17 +76,45 @@ const YAML_TEMPLATE = `- cve_id: CVE-2021-44228
 
 - cve_id: CVE-2021-45046
   vendor: apache
+  title: Apache Log4j2 拒绝服务
+  description: |
+    Log4j2 2.15.0 修复不完整，存在拒绝服务风险。
   cvss: 9.0
   severity: critical
+  cvss_metrics: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+  product:
+    - vendor: apache
+      product: log4j
+      version: "2.15.0"
+      version_start: "2.0"
+      version_start_type: including
+      version_end: "2.15.0"
+      version_end_type: including
+  remediation:
+    mitigation: 升级到 Apache Log4j 2.16.0 或更高版本。
+  reference:
+    - url: https://nvd.nist.gov/vuln/detail/CVE-2021-45046
+      label: NVD
 `
 
 const MARKDOWN_TEMPLATE = `---
 cve_id: CVE-2021-44228
 vendor: apache
 title: Apache Log4j2 JNDI 注入远程代码执行
+description: |
+  Log4j2 的 JNDI 特性未限制 LDAP/RMI 查找，可触发远程代码执行。
+  影响版本 2.0 ~ 2.14.1。
 cvss: 9.8
 severity: critical
 cvss_metrics: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+product:
+  - vendor: apache
+    product: log4j
+    version: "2.14.1"
+    version_start: "2.0"
+    version_start_type: including
+    version_end: "2.14.1"
+    version_end_type: including
 remediation:
   mitigation: 升级到 Apache Log4j 2.15.0 或更高版本。
   workaround: 设置 LOG4J_FORMAT_MSG_NO_LOOKUPS=true。
