@@ -259,8 +259,12 @@ def _parse_content(raw_content: str | bytes, fmt: str) -> list[Any]:
         from app.plugins.parser.json_parser import parser as json_parser
 
         return json_parser.parse(raw_content, fmt)
+    elif fmt == "pocsuite3":
+        from app.plugins.parser.pocsuite3_parser import parser as pocsuite3_parser
+
+        return pocsuite3_parser.parse(raw_content, fmt)
     else:
-        # raw-script / pocsuite3 降级为简单包装
+        # raw-script 降级为简单包装
         from app.plugins.base import NormalizedPoc
 
         text = raw_content if isinstance(raw_content, str) else raw_content.decode("utf-8", errors="replace")
@@ -271,6 +275,7 @@ def _parse_content(raw_content: str | bytes, fmt: str) -> list[Any]:
                 content=text,
                 format=fmt,
                 source="imported",
+                language="python",
                 extra_meta={"format": fmt},
             )
         ]
@@ -430,6 +435,7 @@ def _import_single_poc(
         content=_normalize_content(content),
         content_hash=content_hash,
         author=npoc.author or None,
+        language=npoc.language or None,
         source=source,
         status=default_status,
         version=1,
@@ -439,6 +445,18 @@ def _import_single_poc(
     )
     db.add(poc)
     db.flush()
+
+    # 保存 cnvd_ids 到 extra_meta
+    if npoc.cnvd_ids:
+        meta = dict(poc.extra_meta or {})
+        meta["cnvd_ids"] = npoc.cnvd_ids
+        poc.extra_meta = meta
+
+    # 保存 affected_versions
+    if npoc.affected_versions:
+        from app.services.poc_service import _sync_affected_versions
+
+        _sync_affected_versions(db, poc, npoc.affected_versions)
 
     # 关联 CVE（不存在则按 POC 元数据自动创建；存在则仅补充空缺字段，不覆盖已有值）
     #   先对 cve_id 去重，避免同一 POC 重复关联（poc_vuln 为复合主键，重复会触发 IntegrityError）

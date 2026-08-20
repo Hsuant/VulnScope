@@ -42,6 +42,7 @@ class NormalizedPoc(BaseModel):
     format: str = "nuclei"
     language: str | None = None
     cve_ids: list[str] = Field(default_factory=list)
+    cnvd_ids: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
     extra_meta: dict[str, Any] = Field(default_factory=dict)
@@ -51,6 +52,8 @@ class NormalizedPoc(BaseModel):
     remediation: str | None = None
     vendor: str | None = None
     product: list[dict[str, Any]] | None = None
+    # 版本影响范围
+    affected_versions: list[dict[str, Any]] = Field(default_factory=list)
 
     def validate_structure(self) -> list[str]:
         """结构自检，返回错误列表（空列表 = 合法）。AI 生成模块复用此管道。"""

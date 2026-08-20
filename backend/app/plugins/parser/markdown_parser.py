@@ -87,7 +87,6 @@ class MarkdownParser(PocParser):
                 if isinstance(loaded, dict):
                     meta = loaded
             except yaml.YAMLError:
-                # front-matter 解析失败时按无 front-matter 处理
                 pass
 
         return [self._build(meta, raw)]
@@ -131,8 +130,7 @@ class MarkdownParser(PocParser):
         shodan = meta.get("shodan_syntax")
         publicwww = meta.get("publicwww_syntax") or meta.get("publicwww-query") or meta.get("publicwww")
 
-        # 结构化元数据存入 extra_meta（与 poc_service 约定一致，
-        # 详情页 _build_poc_detail 读取 extra_meta.references / fofa_syntax / shodan_syntax / publicwww_syntax）
+        # 结构化元数据存入 extra_meta
         extra_meta: dict[str, Any] = {}
         if references:
             extra_meta["references"] = references
@@ -143,6 +141,68 @@ class MarkdownParser(PocParser):
         if publicwww:
             extra_meta["publicwww_syntax"] = str(publicwww).strip()
 
+        # 提取 CNVD/CNNVD 编号
+        cnvd_ids: list[str] = []
+        cnvd_raw = meta.get("cnvd") or meta.get("cnvd_ids") or meta.get("cnvd_id") or []
+        if isinstance(cnvd_raw, str):
+            cnvd_raw = [cnvd_raw]
+        if isinstance(cnvd_raw, list):
+            cnvd_ids = [str(c).strip() for c in cnvd_raw if c and str(c).strip()]
+
+        # 提取版本影响范围
+        affected_versions: list[dict[str, Any]] = []
+        av_raw = meta.get("affected_versions") or []
+        if isinstance(av_raw, list):
+            for av in av_raw:
+                if isinstance(av, dict):
+                    affected_versions.append(
+                        {
+                            "version_start": av.get("version_start"),
+                            "version_start_type": av.get("version_start_type", ">="),
+                            "version_end": av.get("version_end"),
+                            "version_end_type": av.get("version_end_type", "<="),
+                        }
+                    )
+
+        # 提取脚本语言
+        language = meta.get("language") or None
+
+        # 提取 CVSS 与修复建议
+        cvss_metrics = meta.get("cvss_metrics") or None
+        remediation = meta.get("remediation") or None
+
+        # 提取厂商/产品
+        vendor = meta.get("vendor") or None
+        product_raw = meta.get("product") or []
+        product_list: list[dict[str, Any]] | None = None
+        if isinstance(product_raw, list):
+            product_list = []
+            for p in product_raw:
+                if isinstance(p, dict):
+                    product_list.append(
+                        {
+                            "vendor": p.get("vendor"),
+                            "product": p.get("product"),
+                            "version": p.get("version"),
+                            "version_start": p.get("version_start"),
+                            "version_start_type": p.get("version_start_type"),
+                            "version_end": p.get("version_end"),
+                            "version_end_type": p.get("version_end_type"),
+                        }
+                    )
+        elif isinstance(product_raw, dict):
+            product_list = [
+                {
+                    "vendor": product_raw.get("vendor"),
+                    "product": product_raw.get("product"),
+                    "version": product_raw.get("version"),
+                    "version_start": product_raw.get("version_start"),
+                    "version_start_type": product_raw.get("version_start_type"),
+                    "version_end": product_raw.get("version_end"),
+                    "version_end_type": product_raw.get("version_end_type"),
+                }
+            ]
+
         return NormalizedPoc(
             name=name,
             title=str(title) if title else None,
@@ -152,10 +212,17 @@ class MarkdownParser(PocParser):
             severity=severity,
             content=body,
             format="markdown",
+            language=language,
             cve_ids=cve_ids,
+            cnvd_ids=cnvd_ids,
             tags=tags,
             references=[r["url"] for r in references if r.get("url")],
             extra_meta=extra_meta,
+            cvss_metrics=cvss_metrics,
+            remediation=remediation,
+            vendor=vendor,
+            product=product_list,
+            affected_versions=affected_versions,
         )
 
     def _extract_name(self, meta: dict[str, Any], body: str) -> str:

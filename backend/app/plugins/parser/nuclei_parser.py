@@ -206,6 +206,38 @@ class NucleiParser(PocParser):
             if publicwww:
                 extra_meta["publicwww_syntax"] = str(publicwww).strip()
 
+        # 提取 CNVD/CNNVD 编号（info.metadata.cnvd / cnvd_ids）
+        cnvd_ids: list[str] = []
+        if metadata:
+            cnvd_raw = metadata.get("cnvd") or metadata.get("cnvd_ids") or []
+            if isinstance(cnvd_raw, str):
+                cnvd_raw = [cnvd_raw]
+            if isinstance(cnvd_raw, list):
+                cnvd_ids = [str(c).strip() for c in cnvd_raw if c and str(c).strip()]
+
+        # 提取版本影响范围（info.metadata.affected_versions）
+        affected_versions: list[dict[str, Any]] = []
+        if metadata:
+            av_raw = metadata.get("affected_versions") or []
+            if isinstance(av_raw, list):
+                for av in av_raw:
+                    if isinstance(av, dict):
+                        affected_versions.append(
+                            {
+                                "version_start": av.get("version_start"),
+                                "version_start_type": av.get("version_start_type", ">="),
+                                "version_end": av.get("version_end"),
+                                "version_end_type": av.get("version_end_type", "<="),
+                            }
+                        )
+
+        # 提取脚本语言（info.metadata.language）
+        language = None
+        if metadata:
+            lang = _str_value(metadata.get("language"))
+            if lang:
+                language = lang
+
         # 构建 POC 内容（使用原始文本，但做规范化）
         content = self._normalize_template(raw_text, doc)
 
@@ -218,7 +250,9 @@ class NucleiParser(PocParser):
             severity=severity,
             content=content,
             format="nuclei",
+            language=language,
             cve_ids=cve_ids,
+            cnvd_ids=cnvd_ids,
             tags=tags,
             references=references,
             extra_meta=extra_meta,
@@ -227,6 +261,7 @@ class NucleiParser(PocParser):
             remediation=remediation or None,
             vendor=vendor,
             product=product_list,
+            affected_versions=affected_versions,
         )
 
     def _normalize_template(self, raw_text: str, doc: dict) -> str:
