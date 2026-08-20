@@ -532,6 +532,38 @@ status:in-progress
 | 来源标记 | 标记导入来源 | `导入` |
 | 默认状态 | 导入后的 POC 状态 | `草稿` |
 
+#### 导入模板字段说明
+
+「查看模板」提供四种格式的完整模板，覆盖导入管道支持的全部字段：
+
+| 字段 | Nuclei YAML | JSON | Pocsuite3 | Markdown |
+|------|------------|------|-----------|----------|
+| `name` | `id` | `name` | `name`(类属性) | 从H1推断 |
+| `title` | `info.name` | `title` | `name`(类属性) | `title`(front-matter) |
+| `severity` | `info.severity` | `severity` | `level` | `severity`(front-matter) |
+| `author` | `info.author` | `author` | `author` | `author`(front-matter) |
+| `description` | `info.description` | `description` | `desc` / `pocDesc` | `description`(front-matter) |
+| `content` | YAML模板体 | `content` | 脚本源码 | 正文Markdown |
+| `cve_ids` | `info.classification.cve-id` | `cve_ids` / `vulnerabilities` | `vulID` | `cve`(front-matter) |
+| `cnvd_ids` | `info.metadata.cnvd` | `cnvd_ids` | `cnvdID` | `cnvd`(front-matter) |
+| `tags` | `info.tags` | `tags` | `tags` / `vulType` | `tags`(front-matter) |
+| `references` | `info.reference` | `references` | `references` | `references`(front-matter) |
+| `fofa_syntax` | `info.metadata.fofa-query` | `metadata.fofa-query` / `fofa_syntax` | `fofa_syntax`(类属性) | `fofa_syntax`(front-matter) |
+| `shodan_syntax` | `info.metadata.shodan-query` | `metadata.shodan-query` / `shodan_syntax` | `shodan_syntax`(类属性) | `shodan_syntax`(front-matter) |
+| `publicwww_syntax` | `info.metadata.publicwww-query` | `metadata.publicwww-query` / `publicwww_syntax` | `publicwww_syntax`(类属性) | `publicwww_syntax`(front-matter) |
+| `remediation` | `info.remediation` | `remediation` | `remediation`(类属性) | `remediation`(front-matter) |
+| `cvss_metrics` | `info.classification.cvss-metrics` | `cvss_metrics` | `cvss_metrics`(类属性) | `cvss_metrics`(front-matter) |
+| `cvss_score` | `info.classification.cvss-score` | `cvss_score` | `cvss_score`(类属性) | — |
+| `vendor` | `info.metadata.vendor` | `vendor` | `appPowerLink` | `vendor`(front-matter) |
+| `product` | `info.metadata.product` | `product` | `appName` + `appVersion` | `product`(front-matter) |
+| `language` | `info.metadata.language` | `language` | `language`(类属性) | `language`(front-matter) |
+| `affected_versions` | `info.metadata.affected_versions` | `affected_versions` | `appVersion`(自动解析) | `affected_versions`(front-matter) |
+| `status` | 由导入参数`default_status`设置 | 同左 | 同左 | 同左 |
+| `source` | 由导入参数`source`设置 | 同左 | 同左 | 同左 |
+| `format` | 自动嗅探 | 同左 | 同左 | 同左 |
+
+> 注：`status`、`source`、`format` 由导入参数或自动嗅探决定，不在模板内容中设置。
+
 ### 5.2 导出 POC
 
 在 POC 列表页勾选需要导出的 POC，点击「导出」：
@@ -630,7 +662,30 @@ CVE 漏洞库集中维护漏洞元数据，与 POC 通过 `cve_id` 多对多关�
 - 已存在 → 仅补充空缺字段，不覆盖已有值；参考链接按 URL 去重追加；无字段可补则计入「跳过」
 - 解析失败或 `cve_id` 非法 → 计入「失败」，单条异常不阻塞整批
 
-**结果面板**：环形进度（总计 / 成功）+ 四段明细（新建 / 更新 / 跳过 / 失败）+ 失败详情列表。页面右上角「查看模板」打开抽屉，提供四种格式的完整模板，可一键复制。模板文件亦存放于 `templates/cve/` 目录。
+**结果面板**：环形进度（总计 / 成功）+ 四段明细（新建 / 更新 / 跳过 / 失败）+ 失败详情列表。页面右上角「查看模板」打开抽屉，提供四种格式的完整模板，可一键复制。
+
+#### CVE 导入模板字段说明
+
+| 字段 | JSON | JSONL | YAML | Markdown |
+|------|------|-------|------|----------|
+| `cve_id` | `cve_id` | `cve_id` | `cve_id` | `cve_id`(front-matter) |
+| `vendor` | `vendor` | `vendor` | `vendor` | `vendor`(front-matter) |
+| `title` | `title` | `title` | `title` | `title`(front-matter) |
+| `description` | `description` | `description` | `description` | `description`(front-matter) |
+| `cvss` (0-10) | `cvss` | `cvss` | `cvss` | `cvss`(front-matter) |
+| `severity` | `severity` | `severity` | `severity` | `severity`(front-matter) |
+| `cvss_metrics` | `cvss_metrics` | `cvss_metrics` | `cvss_metrics` | `cvss_metrics`(front-matter) |
+| `product[].vendor` | `product[].vendor` | `product[].vendor` | `product[].vendor` | `product[].vendor`(front-matter) |
+| `product[].product` | `product[].product` | `product[].product` | `product[].product` | `product[].product`(front-matter) |
+| `product[].version` | `product[].version` | `product[].version` | `product[].version` | `product[].version`(front-matter) |
+| `product[].version_start` | `product[].version_start` | `product[].version_start` | `product[].version_start` | `product[].version_start`(front-matter) |
+| `product[].version_start_type` | `including` | `including` | `including` | `including`(front-matter) |
+| `product[].version_end` | `product[].version_end` | `product[].version_end` | `product[].version_end` | `product[].version_end`(front-matter) |
+| `product[].version_end_type` | `including` | `including` | `including` | `including`(front-matter) |
+| `remediation.mitigation` | `remediation.mitigation` | `remediation.mitigation` | `remediation.mitigation` | `remediation.mitigation`(front-matter) |
+| `remediation.workaround` | `remediation.workaround` | `remediation.workaround` | `remediation.workaround` | `remediation.workaround`(front-matter) |
+| `reference[].url` | `reference[].url` | `reference[].url` | `reference[].url` | `reference[].url`(front-matter) |
+| `reference[].label` | `reference[].label` | `reference[].label` | `reference[].label` | `reference[].label`(front-matter) |
 
 ---
 
