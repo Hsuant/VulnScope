@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+
 from fastapi.testclient import TestClient
 
 
@@ -29,6 +32,154 @@ class TestHealthDetail:
         data = resp.json()["data"]
         db = next(c for c in data["components"] if c["component"] == "db")
         assert db["status"] == "up"
+
+    def test_health_detail_cache_backend(self, client: TestClient, auth_header: dict) -> None:
+        """缓存组件报告后端类型并自检通过。"""
+        resp = client.get("/api/v1/health/detail", headers=auth_header)
+        data = resp.json()["data"]
+        cache = next(c for c in data["components"] if c["component"] == "cache")
+        assert cache["status"] == "up"
+        assert "backend" in cache
+        assert "msg" in cache
+
+    def test_health_detail_plugins_detail(self, client: TestClient, auth_header: dict) -> None:
+        """插件组件列出每个插件的名称 + 版本。"""
+        resp = client.get("/api/v1/health/detail", headers=auth_header)
+        data = resp.json()["data"]
+        plugins = next(c for c in data["components"] if c["component"] == "plugins")
+        assert plugins["status"] == "up"
+        assert plugins["total"] >= 1
+        # 每个槽位下应有插件清单，每个条目含 name + version + enabled
+        assert "plugins" in plugins
+        for slot, entries in plugins["plugins"].items():
+            assert isinstance(slot, str)
+            for entry in entries:
+                assert "name" in entry
+                assert "version" in entry
+                assert "enabled" in entry
+
+
+class TestAccessLogRequestId:
+    """访问日志 request_id 贯穿：每条请求级日志行携带 request_id。"""
+
+    def test_access_log_carries_request_id(self, client: TestClient, auth_header: dict) -> None:
+        """请求后日志文件中出现携带 request_id 的访问日志行。"""
+        resp = client.get("/api/v1/health", headers=auth_header)
+        request_id = resp.headers.get("X-Request-ID", "")
+        assert request_id, "响应头应携带 X-Request-ID"
+
+        # 在日志目录中查找携带该 request_id 的访问日志行。
+        from app.core.logging import _LOG_DIR
+
+        found = False
+        for fname in os.listdir(_LOG_DIR):
+            if not fname.endswith(".log"):
+                continue
+            with open(os.path.join(_LOG_DIR, fname), "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if obj.get("logger") == "access" and obj.get("request_id") == request_id:
+                        assert obj.get("msg")  # msg 字段非空
+                        found = True
+                        break
+            if found:
+                break
+        assert found, f"未在日志中找到 request_id={request_id} 的访问日志行"
+
+
+class TestConsoleFormatter:
+    """控制台格式化器：ERROR 级追加结构化 JSON 行。"""
+
+    def test_info_text_only(self) -> None:
+        """INFO 级别仅输出文本行，无 JSON。"""
+        import io
+        import logging
+
+        from app.core.logging import ConsoleFormatter
+
+        buf = io.StringIO()
+        handler = logging.StreamHandler(buf)
+        handler.setFormatter(ConsoleFormatter())
+        lg = logging.getLogger("test.console.info")
+        lg.addHandler(handler)
+        lg.setLevel(logging.INFO)
+        lg.info("hello world", extra={"request_id": "vsh-x"})
+        lg.removeHandler(handler)
+        out = buf.getvalue()
+        assert "hello world" in out
+        # INFO 不应出现 JSON 行
+        assert "{" not in out
+
+    def test_error_appends_json(self) -> None:
+        """ERROR 级别在文本行后追加 JSON 行，含 extra 字段。"""
+        import io
+        import json as jsonlib
+        import logging
+
+        from app.core.logging import ConsoleFormatter
+
+        buf = io.StringIO()
+        handler = logging.StreamHandler(buf)
+        handler.setFormatter(ConsoleFormatter())
+        lg = logging.getLogger("test.console.error")
+        lg.addHandler(handler)
+        lg.setLevel(logging.DEBUG)
+        lg.error("boom", extra={"request_id": "vsh-err", "component": "db"})
+        lg.removeHandler(handler)
+        out = buf.getvalue()
+        # 应同时含文本行与 JSON 行
+        assert "boom" in out
+        assert "{" in out
+        # 第二行应是合法 JSON
+        lines = [ln for ln in out.strip().split("\n") if ln]
+        json_line = next(ln for ln in lines if ln.startswith("{"))
+        obj = jsonlib.loads(json_line)
+        assert obj["level"] == "ERROR"
+        assert obj["msg"] == "boom"
+        assert obj["component"] == "db"
+
+
+class TestExceptionLogging:
+    """异常处理器日志：500 错误落盘 ERROR + traceback。"""
+
+    def test_500_logged_with_traceback(self, client: TestClient, auth_header: dict) -> None:
+        """访问不存在的详情触发 404，应在日志中留 WARNING 记录。"""
+        resp = client.get("/api/v1/pocs/99999", headers=auth_header)
+        assert resp.status_code == 404
+        request_id = resp.headers.get("X-Request-ID", "")
+        assert request_id
+
+        from app.core.logging import _LOG_DIR
+
+        found = False
+        for fname in os.listdir(_LOG_DIR):
+            if not fname.endswith(".log"):
+                continue
+            with open(os.path.join(_LOG_DIR, fname), "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if (
+                        obj.get("logger") == "app.core.exceptions"
+                        and obj.get("request_id") == request_id
+                        and obj.get("level") in ("ERROR", "WARNING")
+                    ):
+                        found = True
+                        break
+            if found:
+                break
+        assert found, "未在日志中找到异常处理器的结构化记录"
 
 
 class TestMetrics:
