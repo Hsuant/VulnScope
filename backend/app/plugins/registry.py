@@ -10,14 +10,14 @@
 from __future__ import annotations
 
 import importlib
-import logging
 import pkgutil
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.logging import get_logger
 from app.plugins.base import PocParser, PocSource
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

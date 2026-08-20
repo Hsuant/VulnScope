@@ -11,7 +11,10 @@ from typing import Any
 
 import yaml
 
+from app.core.logging import get_logger
 from app.plugins.base import NormalizedPoc, PocParser
+
+logger = get_logger(__name__)
 
 # 合法 severity 值
 VALID_SEVERITIES = {"info", "low", "medium", "high", "critical"}
@@ -83,9 +86,7 @@ class NucleiParser(PocParser):
                 results.append(poc)
             except (ValueError, KeyError) as exc:
                 # 单条解析失败不阻塞整批
-                import logging
-
-                logging.getLogger(__name__).warning("Nuclei 模板解析跳过: %s", exc)
+                logger.warning("Nuclei 模板解析跳过: %s", exc)
                 continue
 
         return results

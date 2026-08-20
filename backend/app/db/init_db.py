@@ -23,16 +23,16 @@ ORM 模型（``app/models/``）是表和字段的**唯一真相**（Single Sourc
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
 
 from sqlalchemy import Engine, inspect
 
 import app.models  # noqa: F401  （导入即注册全部 ORM 模型到 Base.metadata）
+from app.core.logging import get_logger
 from app.db.base import Base
 from app.db.session import engine
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ── 完整 schema 清单（18 张表）：表名 → 模型类 → 字段列表 ─────────────────
 # 字段定义以 ORM 模型为准（类型/长度/约束/索引/外键），此处只作说明与校验清单。

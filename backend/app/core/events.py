@@ -10,13 +10,14 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import inspect
-import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from enum import Enum
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 EVENT_TYPES = {
     "poc.created",
