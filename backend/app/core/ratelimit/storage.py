@@ -82,7 +82,8 @@ class InprocRateLimitStorage(RateLimitStorage):
 def get_storage() -> RateLimitStorage:
     """按配置返回存储后端。redis 分支 v2 实现，当前统一 inproc。"""
     from app.core.config import settings
+    from app.core.logging import get_logger
 
     if settings.CACHE_BACKEND == "redis":
-        print("[ratelimit] redis 存储需 v2 引入，降级为 inproc")
+        get_logger(__name__).warning("redis 存储需 v2 引入，降级为 inproc")
     return InprocRateLimitStorage()

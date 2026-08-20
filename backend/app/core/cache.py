@@ -11,6 +11,9 @@ from typing import Any
 from cachetools import TTLCache
 
 from app.core.config import settings
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class CacheBackend:
@@ -47,7 +50,7 @@ class InprocCache(CacheBackend):
 def get_cache() -> CacheBackend:
     """按配置返回缓存后端。redis 分支 v2 实现，当前降级 inproc 并告警。"""
     if settings.CACHE_BACKEND == "redis":
-        print("[cache] CACHE_BACKEND=redis 需 v2 引入，降级为 inproc")
+        logger.warning("CACHE_BACKEND=redis 需 v2 引入，降级为 inproc")
     return InprocCache()
 
 

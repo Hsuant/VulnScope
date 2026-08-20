@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     API_PREFIX: str = "/api/v1"
 
+    # 日志（控制台文本 + 文件 JSON，见 app/core/logging.py）
+    LOG_LEVEL: str = "INFO"  # DEBUG / INFO / WARNING / ERROR
+
     # 数据库
     DB_BACKEND: str = "sqlite"
     DATABASE_URL: str | None = None

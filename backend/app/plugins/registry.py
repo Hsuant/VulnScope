@@ -10,11 +10,14 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import pkgutil
 from dataclasses import dataclass
 from typing import Any
 
 from app.plugins.base import PocParser, PocSource
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,7 +42,7 @@ class PluginRegistry:
         self._plugins.setdefault(slot, {})[name] = PluginEntry(
             slot=slot, name=name, version=version, instance=instance
         )
-        print(f"[plugins] 已注册 {slot}/{name} v{version}")
+        logger.info("plugin registered", extra={"slot": slot, "pname": name, "version": version})
 
     def get(self, slot: str, name: str) -> PluginEntry | None:
         """按槽位和名称获取插件。"""
@@ -86,7 +89,7 @@ class PluginRegistry:
             try:
                 mod = importlib.import_module(modname)
             except Exception as exc:
-                print(f"[plugins] 加载模块 {modname} 失败: {exc}")
+                logger.warning("plugin module load failed", extra={"modname": modname, "error": str(exc)})
                 continue
 
             # 检查模块中是否有约定名称的实例
@@ -100,7 +103,7 @@ class PluginRegistry:
 
             # 校验接口契约
             if not self._validate_contract(instance, slot):
-                print(f"[plugins] 契约校验失败: {slot}/{name}，跳过注册")
+                logger.warning("plugin contract validation failed", extra={"slot": slot, "name": name})
                 continue
 
             self.register(slot, name, version, instance)

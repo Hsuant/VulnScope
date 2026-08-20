@@ -10,10 +10,13 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import inspect
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 EVENT_TYPES = {
     "poc.created",
@@ -92,7 +95,11 @@ class EventBus:
                 # 异步 handler 在同步上下文中被调用，忽略返回值
                 pass
         except Exception as exc:  # noqa: BLE001
-            print(f"[events] subscriber {handler} failed on {event.type}: {exc}")
+            logger.warning(
+                "event subscriber failed",
+                extra={"event": event.type, "error": str(exc)},
+                exc_info=True,
+            )
 
     async def _safe(self, handler: Handler, event: DomainEvent) -> None:
         try:
@@ -100,7 +107,11 @@ class EventBus:
             if inspect.isawaitable(result):
                 await result
         except Exception as exc:  # noqa: BLE001 - 消费者异常必须隔离
-            print(f"[events] subscriber {handler} failed on {event.type}: {exc}")
+            logger.warning(
+                "event subscriber failed",
+                extra={"event": event.type, "error": str(exc)},
+                exc_info=True,
+            )
 
     def subscriber_count(self, event_type: str) -> int:
         return len(self._subscribers.get(event_type, ()))

@@ -23,6 +23,7 @@ ORM 模型（``app/models/``）是表和字段的**唯一真相**（Single Sourc
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 
 from sqlalchemy import Engine, inspect
@@ -30,6 +31,8 @@ from sqlalchemy import Engine, inspect
 import app.models  # noqa: F401  （导入即注册全部 ORM 模型到 Base.metadata）
 from app.db.base import Base
 from app.db.session import engine
+
+logger = logging.getLogger(__name__)
 
 # ── 完整 schema 清单（18 张表）：表名 → 模型类 → 字段列表 ─────────────────
 # 字段定义以 ORM 模型为准（类型/长度/约束/索引/外键），此处只作说明与校验清单。
@@ -264,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     init_db(reset=args.reset)
     suffix = "（已重置清空重建）" if args.reset else ""
-    print(f"[init-db] 数据库结构初始化完成{suffix}，共 {len(SCHEMA_MANIFEST)} 张表（不含种子数据）")
+    logger.info("数据库结构初始化完成%s，共 %d 张表（不含种子数据）", suffix, len(SCHEMA_MANIFEST))
     return 0
 
 
