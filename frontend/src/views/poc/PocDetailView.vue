@@ -107,21 +107,51 @@
             <div class="meta-item">
               <span class="meta-label">FOFA</span>
               <span class="meta-value">
-                <code v-if="poc.fofa_syntax" class="fofa-syntax">{{ poc.fofa_syntax }}</code>
+                <template v-if="poc.fofa_syntax">
+                  <code class="fofa-syntax">{{ poc.fofa_syntax }}</code>
+                  <div class="syntax-actions">
+                    <el-tooltip content="复制 FOFA 语法" placement="top">
+                      <el-button text size="small" :icon="CopyDocument" @click="copySyntax('fofa')" />
+                    </el-tooltip>
+                    <el-tooltip content="跳转 FOFA 搜索" placement="top">
+                      <el-button text size="small" :icon="Link" @click="searchSyntax('fofa')" />
+                    </el-tooltip>
+                  </div>
+                </template>
                 <span v-else>-</span>
               </span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Shodan</span>
               <span class="meta-value">
-                <code v-if="poc.shodan_syntax" class="fofa-syntax">{{ poc.shodan_syntax }}</code>
+                <template v-if="poc.shodan_syntax">
+                  <code class="fofa-syntax">{{ poc.shodan_syntax }}</code>
+                  <div class="syntax-actions">
+                    <el-tooltip content="复制 Shodan 语法" placement="top">
+                      <el-button text size="small" :icon="CopyDocument" @click="copySyntax('shodan')" />
+                    </el-tooltip>
+                    <el-tooltip content="跳转 Shodan 搜索" placement="top">
+                      <el-button text size="small" :icon="Link" @click="searchSyntax('shodan')" />
+                    </el-tooltip>
+                  </div>
+                </template>
                 <span v-else>-</span>
               </span>
             </div>
             <div class="meta-item">
               <span class="meta-label">PublicWWW</span>
               <span class="meta-value">
-                <code v-if="poc.publicwww_syntax" class="fofa-syntax">{{ poc.publicwww_syntax }}</code>
+                <template v-if="poc.publicwww_syntax">
+                  <code class="fofa-syntax">{{ poc.publicwww_syntax }}</code>
+                  <div class="syntax-actions">
+                    <el-tooltip content="复制 PublicWWW 语法" placement="top">
+                      <el-button text size="small" :icon="CopyDocument" @click="copySyntax('publicwww')" />
+                    </el-tooltip>
+                    <el-tooltip content="跳转 PublicWWW 搜索" placement="top">
+                      <el-button text size="small" :icon="Link" @click="searchSyntax('publicwww')" />
+                    </el-tooltip>
+                  </div>
+                </template>
                 <span v-else>-</span>
               </span>
             </div>
@@ -222,7 +252,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Edit, CopyDocument, Delete, Refresh, Download } from '@element-plus/icons-vue'
+import { Edit, CopyDocument, Delete, Refresh, Download, Link } from '@element-plus/icons-vue'
 import { getPoc, deletePoc as apiDeletePoc, changePocStatus, clonePoc, getPocVersions, getPocSourceRecords } from '@/api/poc'
 import { usePermission } from '@/composables/usePermission'
 import { formatDate, formatRelativeTime, copyToClipboard } from '@/utils/format'
@@ -324,6 +354,34 @@ async function copyContent() {
   if (poc.value?.content) {
     await copyToClipboard(poc.value.content)
     ElMessage.success('已复制到剪贴板')
+  }
+}
+
+/** FOFA/Shodan/PublicWWW：复制语法或跳转搜索。 */
+const SYNTAX_URLS: Record<string, string> = {
+  fofa: 'https://en.fofa.info/result?qbase64=',
+  shodan: 'https://www.shodan.io/search?query=',
+  publicwww: 'https://publicwww.com/websites?q=',
+}
+
+async function copySyntax(type: string) {
+  const key = type === 'fofa' ? 'fofa_syntax' : type === 'shodan' ? 'shodan_syntax' : 'publicwww_syntax'
+  const val = (poc.value as any)?.[key]
+  if (val) {
+    await copyToClipboard(val)
+    ElMessage.success(`已复制 ${type.toUpperCase()} 语法`)
+  }
+}
+
+function searchSyntax(type: string) {
+  const key = type === 'fofa' ? 'fofa_syntax' : type === 'shodan' ? 'shodan_syntax' : 'publicwww_syntax'
+  const val = (poc.value as any)?.[key]
+  if (val) {
+    if (type === 'fofa') {
+      window.open(SYNTAX_URLS.fofa + btoa(val), '_blank', 'noopener')
+    } else {
+      window.open(SYNTAX_URLS[type] + encodeURIComponent(val), '_blank', 'noopener')
+    }
   }
 }
 
@@ -619,5 +677,23 @@ onMounted(loadData)
   line-height: 1.6;
   & + & { margin-top: 4px; }
   &:hover { text-decoration: underline; }
+}
+.fofa-syntax {
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  background: $bg-tertiary;
+  border: 1px solid $border-subtle;
+  border-radius: $radius-sm;
+  padding: 2px 6px;
+  word-break: break-all;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.syntax-actions {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 </style>
