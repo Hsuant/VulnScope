@@ -24,6 +24,8 @@ services:
     volumes:
       # 数据卷仅挂载到独立 data 目录，与镜像内应用代码彻底分离
       - vulnscope-data:/app/data
+      # 日志持久化，避免容器重建丢失日志历史
+      - vulnscope-logs:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
@@ -50,3 +52,4 @@ services:
 
 volumes:
   vulnscope-data:
+  vulnscope-logs:
