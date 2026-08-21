@@ -56,7 +56,7 @@ def _find_marker_root(marker: str, *, expect_dir: bool) -> str:
     current = os.path.dirname(os.path.abspath(__file__))
     for _ in range(10):  # 上限 10 层，防止异常目录结构下死循环
         target = os.path.join(current, marker)
-        if (os.path.isdir(target) if expect_dir else os.path.isfile(target)):
+        if os.path.isdir(target) if expect_dir else os.path.isfile(target):
             return current
         parent = os.path.dirname(current)
         if parent == current:  # 已到文件系统根，无法继续上溯
@@ -151,7 +151,6 @@ class StructLogFormatter(logging.Formatter):
             "request_id",
             # 标准 LogRecord 属性（logging.LogRecord.__init__ 设置的全部）
             "name",
-            "msg",
             "args",
             "levelname",
             "levelno",
@@ -187,9 +186,10 @@ class StructLogFormatter(logging.Formatter):
         """
         # 时间戳：ISO-8601 + 毫秒 + UTC（Z 后缀）。created 为 epoch 秒，
         # msecs 为毫秒部分，拼接后精度到毫秒。
-        ts = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%S."
-        ) + f"{record.msecs:03.0f}Z"
+        ts = (
+            datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{record.msecs:03.0f}Z"
+        )
         payload: dict[str, Any] = {
             "ts": ts,
             "level": record.levelname,
@@ -335,7 +335,7 @@ class DailyLogHandler(logging.Handler):
                 # 文件名不合规或被占用，跳过不中断清理。
                 pass
 
-    def setFormatter(self, fmt: logging.Formatter) -> None:  # noqa: N802
+    def setFormatter(self, fmt: logging.Formatter | None) -> None:  # noqa: N802
         """覆写格式化器，并同步给已打开的内部 handler。
 
         Args:

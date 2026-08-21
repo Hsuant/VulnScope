@@ -75,7 +75,7 @@ class TestAccessLogRequestId:
         for fname in os.listdir(_LOG_DIR):
             if not fname.endswith(".log"):
                 continue
-            with open(os.path.join(_LOG_DIR, fname), "r", encoding="utf-8", errors="replace") as f:
+            with open(os.path.join(_LOG_DIR, fname), encoding="utf-8", errors="replace") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -161,7 +161,7 @@ class TestExceptionLogging:
         for fname in os.listdir(_LOG_DIR):
             if not fname.endswith(".log"):
                 continue
-            with open(os.path.join(_LOG_DIR, fname), "r", encoding="utf-8", errors="replace") as f:
+            with open(os.path.join(_LOG_DIR, fname), encoding="utf-8", errors="replace") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
