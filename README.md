@@ -33,6 +33,42 @@
 - **插件框架** — Parser/Source/Verifier/Exporter 四插槽，即插即用
 - **事件驱动架构** — 领域事件异步派发，模块间解耦联动
 
+## 界面预览
+
+### 登录与统计看板
+
+<p align="center"><img src="assets/images/zh/Login.png" alt="登录页" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/Dashboard-One.png" alt="统计看板 · 资产总览" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/Dashboard-Two.png" alt="统计看板 · 趋势与分布" width="85%"/></p>
+
+### POC 管理
+
+<p align="center"><img src="assets/images/zh/PoCList.png" alt="POC 列表" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/PoCCreate.png" alt="POC 新建 · 表单构建" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/PoCImport.png" alt="POC 批量导入" width="85%"/></p>
+
+### CVE 漏洞库
+
+<p align="center"><img src="assets/images/zh/CVEList.png" alt="CVE 列表" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/CVECreate.png" alt="CVE 新建" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/CVEImport.png" alt="CVE 批量导入" width="85%"/></p>
+
+### 标签 / 插件 / 审计 / 个人中心
+
+<p align="center"><img src="assets/images/zh/TagsList.png" alt="标签管理" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/Plugins.png" alt="插件管理" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/AuditLogs.png" alt="审计日志" width="85%"/></p>
+
+<p align="center"><img src="assets/images/zh/UserProfile.png" alt="个人中心" width="85%"/></p>
+
 ## 快速开始
 
 ### 前置要求
