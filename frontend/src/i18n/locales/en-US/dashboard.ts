@@ -1,0 +1,43 @@
+// Analytics dashboard copy
+export default {
+  charts: {
+    trend: 'New POC / CVE Trend',
+    trendSub: 'Daily additions, last 30 days · {sum} POCs total',
+    statusDist: 'POC Status Distribution',
+    severityDist: 'Severity Distribution',
+    tagDist: 'Namespace Tag Distribution',
+    tagDistMeta: '{count} tags in total',
+    namespacePlaceholder: 'Select namespace',
+    assetSearchDist: 'Asset Search Command Distribution',
+    vendorCvssMatrix: 'Vendor × CVSS Risk Matrix',
+    vendorCvssMatrixHint: 'Darker color · more CVEs in this cell',
+    topAuthors: 'Top Authors',
+    topAuthorsMeta: '{count} contributors',
+    recentActivity: 'Recent Activity',
+    newPoc: 'New POCs',
+    newCve: 'New CVEs',
+    noData: 'No data',
+    severityUnrated: 'Unrated',
+    heatmapLess: 'Fewer',
+    heatmapMore: 'More',
+    unknownVendor: 'Unknown',
+    cveCount: 'CVEs',
+  },
+  stats: {
+    pocTotal: 'Total POCs',
+    activePoc: 'Active POCs',
+    cveVulns: 'CVE Vulnerabilities',
+    contributors: 'Contributors',
+    trend30d: '+{count} in last 30 days',
+    activeRate: '{rate}% active',
+    avgPerPoc: '{avg} avg / POC',
+    perCapita: '{count} POCs per author',
+  },
+  empty: {
+    authors: 'No author data',
+    activity: 'No activity yet',
+  },
+  activity: {
+    unknownPoc: 'Unknown POC',
+  },
+}

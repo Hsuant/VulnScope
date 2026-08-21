@@ -1,26 +1,26 @@
 <template>
   <div class="poc-list-view">
-    <PageHeader title="POC 列表">
+    <PageHeader :title="$t('nav.pocList')">
       <template #actions>
         <el-button :icon="Upload" @click="handleExport" :disabled="!selectedIds.length">
-          导出
+          {{ $t('common.action.export') }}
         </el-button>
         <el-button :icon="Download" @click="$router.push('/pocs/import')" v-if="canEdit">
-          导入 POC
+          {{ $t('nav.pocImport') }}
         </el-button>
         <el-button type="primary" :icon="Plus" @click="$router.push('/pocs/new')" v-if="canEdit">
-          新建 POC
+          {{ $t('nav.pocCreate') }}
         </el-button>
       </template>
     </PageHeader>
 
     <!-- 筛选栏（含标题） -->
     <div class="filter-bar">
-      <span class="filter-bar-label">常规查询</span>
+      <span class="filter-bar-label">{{ $t('pocList.regularQuery') }}</span>
       <div class="query-fields">
         <el-input
           v-model="filters.q"
-          placeholder="搜索名称、标题、描述..."
+          :placeholder="$t('pocList.searchPlaceholder')"
           clearable
           class="filter-search"
           :prefix-icon="Search"
@@ -30,93 +30,81 @@
           v-model="filters.tagIds"
           :options="tagOptions"
           :props="{ multiple: true, emitPath: false, value: 'id', label: 'name' }"
-          placeholder="按标签查询"
+          :placeholder="$t('pocList.tagPlaceholder')"
           clearable
           collapse-tags
           collapse-tags-tooltip
           class="filter-cascader"
         />
-        <el-select v-model="filters.severity" placeholder="严重级别" clearable multiple collapse-tags class="filter-select">
-          <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        <el-select v-model="filters.severity" :placeholder="$t('pocList.severityPlaceholder')" clearable multiple collapse-tags class="filter-select">
+          <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
         </el-select>
-        <el-select v-model="filters.status" placeholder="状态" clearable multiple collapse-tags class="filter-select">
-          <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        <el-select v-model="filters.status" :placeholder="$t('pocList.statusPlaceholder')" clearable multiple collapse-tags class="filter-select">
+          <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
         </el-select>
-        <el-select v-model="filters.source" placeholder="来源" clearable multiple collapse-tags class="filter-select">
-          <el-option v-for="s in SOURCE_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        <el-select v-model="filters.source" :placeholder="$t('pocList.sourcePlaceholder')" clearable multiple collapse-tags class="filter-select">
+          <el-option v-for="s in SOURCE_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
         </el-select>
       </div>
-      <el-button type="primary" :icon="Search" @click="search" class="filter-queries__btn">查询</el-button>
-      <el-button :icon="Refresh" @click="resetFilters" class="filter-btn">清空</el-button>
+      <el-button type="primary" :icon="Search" @click="search" class="filter-queries__btn">{{ $t('common.action.query') }}</el-button>
+      <el-button :icon="Refresh" @click="resetFilters" class="filter-btn">{{ $t('common.action.clear') }}</el-button>
     </div>
 
     <!-- 产品查询面板：基于标签命名空间（Vendor / OSS）的厂商 / 产品选择 -->
     <div class="product-query-bar">
-      <span class="product-query-label">产品查询</span>
+      <span class="product-query-label">{{ $t('pocList.productQuery') }}</span>
       <div class="query-fields">
         <TagSelectPanel
           ref="tagSelectPanelRef"
           @change="onTagSelectChange"
           @clear="onTagSelectClear"
         />
-        <el-select v-model="versionStartOp" placeholder="≥" class="op-select" @change="doProductQuery">
-          <el-option label="不限" value="any" />
-          <el-option label=">" value="gt" />
-          <el-option label=">=" value="gte" />
-          <el-option label="<" value="lt" />
-          <el-option label="<=" value="lte" />
-          <el-option label="==" value="eq" />
+        <el-select v-model="versionStartOp" :placeholder="$t('pocList.opPlaceholderGte')" class="op-select" @change="doProductQuery">
+          <el-option v-for="(op, key) in VERSION_OPS" :key="key" :label="op" :value="key" />
         </el-select>
         <el-input
           v-model="versionStart"
-          placeholder="2.3.0"
+          :placeholder="$t('pocList.versionStartPlaceholder')"
           clearable
           class="version-input"
           @keyup.enter="doProductQuery"
         />
-        <el-select v-model="versionEndOp" placeholder="≤" class="op-select" @change="doProductQuery">
-          <el-option label="不限" value="any" />
-          <el-option label=">" value="gt" />
-          <el-option label=">=" value="gte" />
-          <el-option label="<" value="lt" />
-          <el-option label="<=" value="lte" />
-          <el-option label="==" value="eq" />
+        <el-select v-model="versionEndOp" :placeholder="$t('pocList.opPlaceholderLte')" class="op-select" @change="doProductQuery">
+          <el-option v-for="(op, key) in VERSION_OPS" :key="key" :label="op" :value="key" />
         </el-select>
         <el-input
           v-model="versionEnd"
-          placeholder="2.3.5"
+          :placeholder="$t('pocList.versionEndPlaceholder')"
           clearable
           class="version-input"
           @keyup.enter="doProductQuery"
         />
       </div>
       <el-button type="primary" :icon="Search" :loading="productQueryLoading" @click="doProductQuery" class="filter-queries__btn">
-        查询
+        {{ $t('common.action.query') }}
       </el-button>
-      <el-button :icon="Refresh" @click="resetProductQuery" class="filter-btn">清空</el-button>
+      <el-button :icon="Refresh" @click="resetProductQuery" class="filter-btn">{{ $t('common.action.clear') }}</el-button>
     </div>
 
     <!-- 产品查询状态条：仅产品模式下显示 -->
     <div v-if="productMode" class="product-status-row">
       <span class="product-mode-hint">
         <el-icon class="hint-icon"><InfoFilled /></el-icon>
-        当前查询：{{ selectedVendorName ? `${selectedVendorName} : ` : '' }}{{ selectedOssName }}
-        {{ versionStart ? `${versionStartOp || '≥'} ${versionStart}` : '' }}
-        {{ versionEnd ? `～ ${versionEndOp || '≤'} ${versionEnd}` : '' }}
+        {{ $t('pocList.productModeHint', { vendorText, ossText, versionText }) }}
       </span>
       <el-button text size="small" type="primary" @click="exitProductMode">
-        返回列表
+        {{ $t('pocList.backToList') }}
       </el-button>
     </div>
 
     <!-- 批量操作栏 -->
     <div v-if="selectedIds.length" class="batch-bar">
-      <span class="batch-info">已选 {{ selectedIds.length }} 项</span>
-      <el-select v-if="canEdit" v-model="batchStatus" placeholder="批量改状态" size="small" class="batch-select" @change="handleBatchStatus">
-        <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+      <span class="batch-info">{{ $t('common.selectedCount', { count: selectedIds.length }) }}</span>
+      <el-select v-if="canEdit" v-model="batchStatus" :placeholder="$t('common.action.batchChangeStatus')" size="small" class="batch-select" @change="handleBatchStatus">
+        <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
       </el-select>
-      <el-button size="small" :icon="Upload" @click="handleExport">批量导出</el-button>
-      <el-button v-if="canEdit" size="small" type="danger" :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
+      <el-button size="small" :icon="Upload" @click="handleExport">{{ $t('common.action.batchExport') }}</el-button>
+      <el-button v-if="canEdit" size="small" type="danger" :icon="Delete" @click="handleBatchDelete">{{ $t('common.action.batchDelete') }}</el-button>
     </div>
 
     <!-- 表格 -->
@@ -131,22 +119,22 @@
       height="calc(100vh - 340px)"
     >
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="title" label="名称" min-width="360" show-overflow-tooltip>
+      <el-table-column prop="title" :label="$t('common.columns.name')" min-width="360" show-overflow-tooltip>
         <template #default="{ row }">
           <span class="poc-name">{{ row.title || row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="级别" width="80" align="center">
+      <el-table-column :label="$t('common.columns.severity')" width="80" align="center">
         <template #default="{ row }">
           <SeverityBadge :severity="row.severity" />
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="80" align="center">
+      <el-table-column :label="$t('common.columns.status')" width="80" align="center">
         <template #default="{ row }">
           <StatusBadge :status="row.status" />
         </template>
       </el-table-column>
-      <el-table-column label="标签" width="150" align="center">
+      <el-table-column :label="$t('common.columns.tags')" width="150" align="center">
         <template #default="{ row }">
           <div class="tag-cell">
             <TagChip v-for="tag in row.tags.slice(0, 3)" :key="tag.id" :tag="tag" />
@@ -154,26 +142,26 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="CVE" width="130" align="center" show-overflow-tooltip>
+      <el-table-column :label="$t('common.columns.cve')" width="130" align="center" show-overflow-tooltip>
         <template #default="{ row }">
           <span class="cell-text">{{ row.cve_ids?.join(', ') || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="作者" width="90" align="center" show-overflow-tooltip>
+      <el-table-column :label="$t('common.columns.author')" width="90" align="center" show-overflow-tooltip>
         <template #default="{ row }">
           <span class="cell-text">{{ row.author || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" width="150" align="center">
+      <el-table-column :label="$t('common.columns.updatedAt')" width="150" align="center">
         <template #default="{ row }">
           <span class="cell-time">{{ formatDate(row.updated_at) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150" align="center" fixed="right">
+      <el-table-column :label="$t('common.columns.actions')" width="150" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-cell">
-            <el-button text size="small" type="primary" @click.stop="goToDetail(row.id)">详情</el-button>
-            <el-button v-if="canEdit" text size="small" type="danger" :icon="Delete" @click.stop="handleDelete(row)">删除</el-button>
+            <el-button text size="small" type="primary" @click.stop="goToDetail(row.id)">{{ $t('common.action.detail') }}</el-button>
+            <el-button v-if="canEdit" text size="small" type="danger" :icon="Delete" @click.stop="handleDelete(row)">{{ $t('common.action.delete') }}</el-button>
           </div>
         </template>
       </el-table-column>
@@ -201,7 +189,7 @@
     >
       <template #header>
         <div class="drawer-header">
-          <span class="drawer-title">{{ selectedPoc?.name || 'POC 预览' }}</span>
+          <span class="drawer-title">{{ selectedPoc?.name || $t('pocList.drawer.preview') }}</span>
           <el-dropdown
             v-if="searchSyntaxes.length"
             trigger="click"
@@ -237,39 +225,39 @@
 
           <!-- 简介 -->
           <div class="section">
-            <div class="section-label">简介</div>
-            <div class="section-content text">{{ selectedPoc.description || '暂无描述' }}</div>
+            <div class="section-label">{{ $t('pocList.drawer.intro') }}</div>
+            <div class="section-content text">{{ selectedPoc.description || $t('pocList.drawer.noDescription') }}</div>
           </div>
 
           <!-- 路径 -->
           <div class="section">
             <div class="section-label">
-              路径
+              {{ $t('pocList.drawer.paths') }}
               <span v-if="previewPaths.length" class="count-badge">{{ previewPaths.length }}</span>
             </div>
             <div v-if="previewPaths.length" class="path-list">
               <div v-for="(p, i) in previewPaths" :key="i" class="path-item section-content mono">{{ p }}</div>
             </div>
-            <div v-else class="section-content">暂无可解析路径</div>
+            <div v-else class="section-content">{{ $t('pocList.drawer.noPaths') }}</div>
           </div>
 
           <!-- 数据包 -->
           <div class="section">
-            <div class="section-label">POC / EXP</div>
+            <div class="section-label">{{ $t('pocList.drawer.packet') }}</div>
             <div v-if="previewPacket" class="packet-wrap">
               <div class="packet-toolbar">
                 <span class="packet-lang">raw</span>
-                <el-button size="small" text class="packet-copy" :icon="CopyDocument" @click="copyPacket">复制</el-button>
+                <el-button size="small" text class="packet-copy" :icon="CopyDocument" @click="copyPacket">{{ $t('common.action.copy') }}</el-button>
               </div>
               <pre class="packet-block"><code>{{ previewPacket }}</code></pre>
             </div>
-            <div v-else class="section-content">暂无可解析数据包</div>
+            <div v-else class="section-content">{{ $t('pocList.drawer.noPacket') }}</div>
           </div>
 
           <!-- 参考链接 -->
           <div class="section">
             <div class="section-label">
-              参考链接
+              {{ $t('pocList.drawer.references') }}
               <span v-if="selectedPoc.references?.length" class="count-badge">{{ selectedPoc.references.length }}</span>
             </div>
             <div v-if="selectedPoc.references?.length" class="ref-list">
@@ -282,25 +270,25 @@
                 <span class="ref-text">{{ ref.label || ref.url }}</span>
               </a>
             </div>
-            <div v-else class="section-content">暂无参考链接</div>
+            <div v-else class="section-content">{{ $t('pocList.drawer.noReferences') }}</div>
           </div>
 
           <!-- 底部操作 -->
           <div class="drawer-footer">
             <el-button type="primary" plain class="footer-btn" @click="goToDetail(selectedPoc.id)">
-              查看完整详情
+              {{ $t('common.action.viewFull') }}
             </el-button>
           </div>
         </template>
-        <div v-else class="drawer-empty">暂无数据</div>
+        <div v-else class="drawer-empty">{{ $t('common.message.noData') }}</div>
       </div>
     </el-drawer>
 
     <!-- 确认对话框：单条删除 -->
     <ConfirmDialog
       v-model:visible="singleDeleteVisible"
-      title="确认删除"
-      :message="`确定要删除 POC ${(deleteTarget?.title || deleteTarget?.name) ?? ''} 吗？此操作不可恢复。`"
+      :title="$t('common.title.deleteConfirm')"
+      :message="$t('pocList.messages.deleteConfirm', { name: (deleteTarget?.title || deleteTarget?.name) ?? '' })"
       type="danger"
       @confirm="confirmSingleDelete"
     />
@@ -308,23 +296,23 @@
     <!-- 确认对话框：批量删除 -->
     <ConfirmDialog
       v-model:visible="deleteDialogVisible"
-      title="确认删除"
-      :message="`确定要删除选中的 ${selectedIds.length} 个 POC 吗？此操作不可恢复。`"
+      :title="$t('common.title.deleteConfirm')"
+      :message="$t('pocList.messages.deleteBatchConfirm', { count: selectedIds.length })"
       type="danger"
       @confirm="confirmBatchDelete"
     />
 
     <ConfirmDialog
       v-model:visible="exportDialogVisible"
-      title="导出 POC"
-      message="选择导出格式："
-      confirm-text="导出"
+      :title="$t('common.action.export')"
+      :message="$t('pocList.messages.exportMessage')"
+      :confirm-text="$t('common.action.export')"
       @confirm="confirmExport"
     >
       <template #default>
         <el-radio-group v-model="exportFormat" class="export-format-group">
-          <el-radio value="json">JSON（包含完整元数据）</el-radio>
-          <el-radio value="nuclei">Nuclei YAML（纯模板）</el-radio>
+          <el-radio value="json">{{ $t('pocList.messages.exportFormatJson') }}</el-radio>
+          <el-radio value="nuclei">{{ $t('pocList.messages.exportFormatNuclei') }}</el-radio>
         </el-radio-group>
       </template>
     </ConfirmDialog>
@@ -332,8 +320,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, toRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { load as loadYamlDoc } from 'js-yaml'
 import { Plus, Search, Refresh, Download, Upload, Delete, ArrowDown, Link, CopyDocument, InfoFilled } from '@element-plus/icons-vue'
@@ -341,6 +330,7 @@ import { listPocs, getPoc, deletePoc, changePocStatus } from '@/api/poc'
 import { listTags } from '@/api/tag'
 import { exportPocs } from '@/api/import-export'
 import { usePermission } from '@/composables/usePermission'
+import { useQuerySync } from '@/composables/useQuerySync'
 import { formatDate, copyToClipboard } from '@/utils/format'
 import { SEVERITY_OPTIONS, STATUS_OPTIONS, SOURCE_OPTIONS, SOURCE_MAP } from '@/utils/constants'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -354,6 +344,17 @@ import type { TagItem } from '@/types/tag'
 
 const router = useRouter()
 const { canEdit } = usePermission()
+const { t } = useI18n()
+
+// 版本区间操作符选项（文本随语言包，值不变）
+const VERSION_OPS: Record<string, string> = {
+  any: t('pocList.ops.any'),
+  gt: '>',
+  gte: '≥',
+  lt: '<',
+  lte: '≤',
+  eq: '==',
+}
 
 onMounted(() => {
   loadTagOptions()
@@ -380,6 +381,31 @@ const filters = reactive({
   source: [] as string[],
   tagIds: [] as number[],
 })
+
+// ── 筛选 / 分页 ↔ URL query 同步（刷新页面保留状态，支持前进/后退） ──
+// 产品查询模式（Vendor/OSS/版本区间）为临时查询态，不纳入 URL 持久化。
+const querySync = useQuerySync(
+  {
+    page: { type: 'number', default: 1 },
+    pageSize: { type: 'number', default: 20 },
+    q: { type: 'string', default: '' },
+    severity: { type: 'string[]' },
+    status: { type: 'string[]' },
+    source: { type: 'string[]' },
+    tag_ids: { type: 'number[]' },
+  },
+  {
+    page,
+    pageSize,
+    q: toRef(filters, 'q'),
+    severity: toRef(filters, 'severity'),
+    status: toRef(filters, 'status'),
+    source: toRef(filters, 'source'),
+    tag_ids: toRef(filters, 'tagIds'),
+  },
+  loadData,
+)
+querySync.init()
 
 // ── 标签级联选项（一级命名空间 → 二级标签名）──────────────
 const tagOptions = ref<{ id: string; name: string; children: { id: number; name: string }[] }[]>([])
@@ -432,6 +458,16 @@ const versionEndOp = ref('lte')
 const selectedVendorName = computed(() => selectedVendorTag.value?.name || '')
 const selectedOssName = computed(() => selectedOssTag.value?.name || '')
 
+// 产品查询状态条组成片段
+const vendorText = computed(() => (selectedVendorTag.value ? `${selectedVendorTag.value.name} : ` : ''))
+const ossText = computed(() => selectedOssTag.value?.name || '')
+const versionText = computed(() => {
+  const parts: string[] = []
+  if (versionStart.value) parts.push(`${versionStartOp.value || '≥'} ${versionStart.value}`)
+  if (versionEnd.value) parts.push(`～ ${versionEndOp.value || '≤'} ${versionEnd.value}`)
+  return parts.join(' ')
+})
+
 /** TagSelectPanel 选中变更回调 */
 function onTagSelectChange(vendor: TagItem | null, oss: TagItem | null) {
   selectedVendorTag.value = vendor
@@ -453,7 +489,7 @@ async function doProductQuery() {
   const ossId = tagSelectPanelRef.value?.getOssId()
 
   if (!vendorId && !ossId) {
-    ElMessage.warning('请至少选择一个厂商或产品')
+    ElMessage.warning(t('pocList.selectVendorOrOssFirst'))
     return
   }
 
@@ -793,7 +829,7 @@ async function openDrawer(id: number) {
     selectedPoc.value = await getPoc(id)
   } catch {
     selectedPoc.value = null
-    ElMessage.error('加载 POC 详情失败')
+    ElMessage.error(t('pocList.messages.loadDetailFailed'))
   } finally {
     drawerLoading.value = false
   }
@@ -807,9 +843,9 @@ function handleDrawerClose() {
 async function copySyntax(syntax: { key: string; label: string; value: string }) {
   try {
     await copyToClipboard(syntax.value)
-    ElMessage.success(`已复制 ${syntax.label} 语法`)
+    ElMessage.success(t('pocList.messages.copiedSyntax', { syntax: syntax.label }))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('common.message.copyFailed'))
   }
 }
 
@@ -817,9 +853,9 @@ async function copyPacket() {
   if (!previewPacket.value) return
   try {
     await copyToClipboard(previewPacket.value)
-    ElMessage.success('已复制数据包')
+    ElMessage.success(t('pocList.messages.copiedPacket'))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('common.message.copyFailed'))
   }
 }
 
@@ -873,6 +909,8 @@ function resetFilters() {
 }
 
 watch(filters, () => {
+  // URL 反同步期间跳过：避免把 URL 中的页码等覆盖回默认值后再加载
+  if (querySync.syncing.value) return
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     page.value = 1
@@ -886,7 +924,7 @@ async function handleBatchStatus(status: string) {
     for (const id of selectedIds.value) {
       await changePocStatus(id, status)
     }
-    ElMessage.success('批量状态更新成功')
+    ElMessage.success(t('pocList.messages.batchStatusSuccess'))
     batchStatus.value = ''
     loadData()
   } catch {
@@ -907,7 +945,7 @@ async function confirmSingleDelete() {
   if (!target) return
   try {
     await deletePoc(target.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.message.deleteSuccess'))
     deleteTarget.value = null
     loadData()
   } catch {
@@ -926,7 +964,7 @@ async function confirmBatchDelete() {
     for (const id of selectedIds.value) {
       await deletePoc(id)
     }
-    ElMessage.success('批量删除成功')
+    ElMessage.success(t('common.message.batchDeleteSuccess'))
     selectedIds.value = []
     loadData()
   } catch {
@@ -936,7 +974,7 @@ async function confirmBatchDelete() {
 
 function handleExport() {
   if (!selectedIds.value.length) {
-    ElMessage.warning('请先选择要导出的 POC')
+    ElMessage.warning(t('common.message.selectExportItems'))
     return
   }
   exportDialogVisible.value = true
@@ -953,7 +991,7 @@ async function confirmExport() {
     a.download = `pocs-export.${exportFormat.value === 'json' ? 'json' : 'yaml'}`
     a.click()
     URL.revokeObjectURL(url)
-    ElMessage.success('导出成功')
+    ElMessage.success(t('pocList.messages.exportSuccess'))
   } catch {
     // handled by interceptor
   }

@@ -1,8 +1,8 @@
 <template>
   <div class="tag-manage-view">
-    <PageHeader title="标签管理">
+    <PageHeader :title="$t('nav.tagManage')">
       <template #actions>
-        <el-button v-if="canEdit" type="primary" :icon="Plus" @click="openCreateDialog">新建标签</el-button>
+        <el-button v-if="canEdit" type="primary" :icon="Plus" @click="openCreateDialog">{{ $t('tagManage.createTag') }}</el-button>
       </template>
     </PageHeader>
 
@@ -11,7 +11,7 @@
       <div class="search-bar">
         <el-input
           v-model="q"
-          placeholder="搜索标签名称或命名空间..."
+          :placeholder="$t('tagManage.searchPlaceholder')"
           clearable
           class="search-input"
           :prefix-icon="Search"
@@ -22,31 +22,31 @@
       <div v-for="ns in filteredGroupedTags" :key="ns.namespace" class="namespace-group">
         <h3 class="ns-title">{{ ns.namespace }}</h3>
         <el-table :data="ns.tags" stripe class="tag-table" @row-click="openEditDialog">
-          <el-table-column prop="name" label="名称" width="140">
+          <el-table-column prop="name" :label="$t('common.columns.name')" width="140">
             <template #default="{ row }">
               <TagChip :tag="row" />
             </template>
           </el-table-column>
-          <el-table-column label="颜色" width="80">
+          <el-table-column :label="$t('tagManage.columns.color')" width="80">
             <template #default="{ row }">
-              <span class="color-swatch" :style="{ background: row.color || '#4a8cba' }" />
+              <span class="color-swatch" :style="{ background: row.color || 'var(--vs-accent)' }" />
             </template>
           </el-table-column>
-          <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip>
+          <el-table-column prop="description" :label="$t('common.columns.description')" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
               <span class="cell-text">{{ row.description || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="POC 数" width="80">
+          <el-table-column :label="$t('tagManage.columns.pocCount')" width="80">
             <template #default="{ row }">
               <span class="cell-count">{{ row.poc_count }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" align="center" fixed="right">
+          <el-table-column :label="$t('common.columns.actions')" width="100" align="center" fixed="right">
             <template #default="{ row }">
               <div class="action-cell">
-                <el-button v-if="canEdit" text size="small" @click.stop="openEditDialog(row)">编辑</el-button>
-                <el-button v-if="canEdit" text size="small" type="danger" @click.stop="handleDelete(row)">删除</el-button>
+                <el-button v-if="canEdit" text size="small" @click.stop="openEditDialog(row)">{{ $t('common.action.edit') }}</el-button>
+                <el-button v-if="canEdit" text size="small" type="danger" @click.stop="handleDelete(row)">{{ $t('common.action.delete') }}</el-button>
               </div>
             </template>
           </el-table-column>
@@ -54,31 +54,31 @@
       </div>
 
       <div v-if="!filteredGroupedTags.length && !loading" class="empty-area">
-        <EmptyState icon="Collection" :title="q ? '无匹配标签' : '暂无标签'" :description="q ? '尝试其他搜索关键词' : '尚未创建任何标签'" />
+        <EmptyState icon="Collection" :title="q ? $t('tagManage.noMatch') : $t('tagManage.noTags')" :description="q ? $t('tagManage.tryOtherKeywords') : $t('tagManage.noneCreated')" />
       </div>
     </div>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEditing ? '编辑标签' : '新建标签'" width="420">
+    <el-dialog v-model="dialogVisible" :title="isEditing ? $t('tagManage.editTag') : $t('tagManage.createTag')" width="420">
       <el-form ref="formRef" :model="tagForm" :rules="tagRules" label-width="80px">
-        <el-form-item label="命名空间" prop="namespace">
-          <el-select v-model="tagForm.namespace" allow-create filterable placeholder="选择或输入命名空间">
+        <el-form-item :label="$t('tagManage.fields.namespace')" prop="namespace">
+          <el-select v-model="tagForm.namespace" allow-create filterable :placeholder="$t('tagManage.placeholders.namespace')">
             <el-option v-for="ns in namespaces" :key="ns" :label="ns" :value="ns" />
           </el-select>
         </el-form-item>
-        <el-form-item label="标签名" prop="name">
-          <el-input v-model="tagForm.name" placeholder="标签名称" />
+        <el-form-item :label="$t('tagManage.fields.tagName')" prop="name">
+          <el-input v-model="tagForm.name" :placeholder="$t('tagManage.placeholders.tagName')" />
         </el-form-item>
-        <el-form-item label="颜色" prop="color">
+        <el-form-item :label="$t('tagManage.fields.color')" prop="color">
           <el-color-picker v-model="tagForm.color" />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="tagForm.description" placeholder="描述信息" />
+        <el-form-item :label="$t('tagManage.fields.description')" prop="description">
+          <el-input v-model="tagForm.description" :placeholder="$t('tagManage.placeholders.description')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.action.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ $t('common.action.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -86,6 +86,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { listTags, createTag, updateTag, deleteTag, listNamespaces } from '@/api/tag'
@@ -96,6 +97,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import type { TagItem } from '@/types/tag'
 
 const { canEdit } = usePermission()
+const { t } = useI18n()
 
 const loading = ref(true)
 const tags = ref<TagItem[]>([])
@@ -115,8 +117,8 @@ const tagForm = ref({
 })
 
 const tagRules = {
-  namespace: [{ required: true, message: '请输入命名空间', trigger: 'blur' }],
-  name: [{ required: true, message: '请输入标签名', trigger: 'blur' }],
+  namespace: [{ required: true, message: t('tagManage.rules.namespace'), trigger: 'blur' }],
+  name: [{ required: true, message: t('tagManage.rules.tagName'), trigger: 'blur' }],
 }
 
 const filteredGroupedTags = computed(() => {
@@ -184,10 +186,10 @@ async function handleSave() {
   try {
     if (isEditing.value && editingId.value) {
       await updateTag(editingId.value, tagForm.value)
-      ElMessage.success('标签更新成功')
+      ElMessage.success(t('tagManage.messages.updateSuccess'))
     } else {
       await createTag(tagForm.value)
-      ElMessage.success('标签创建成功')
+      ElMessage.success(t('tagManage.messages.createSuccess'))
     }
     dialogVisible.value = false
     loadData()
@@ -201,7 +203,7 @@ async function handleSave() {
 async function handleDelete(tag: any) {
   try {
     await deleteTag(tag.id)
-    ElMessage.success('标签已删除')
+    ElMessage.success(t('tagManage.messages.deleteSuccess'))
     loadData()
   } catch {
     // handled by interceptor

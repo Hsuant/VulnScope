@@ -6,7 +6,7 @@
   -->
   <div class="donut-chart" :class="{ 'is-full': showLabels }">
     <VChart v-if="items.length" class="donut-canvas" :option="option" autoresize />
-    <div v-else class="chart-empty" :class="{ 'is-full': showLabels }">暂无数据</div>
+    <div v-else class="chart-empty" :class="{ 'is-full': showLabels }">{{ $t('dashboard.charts.noData') }}</div>
   </div>
 </template>
 

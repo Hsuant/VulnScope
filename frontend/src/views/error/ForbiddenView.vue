@@ -1,10 +1,10 @@
 <template>
   <div class="error-page">
     <div class="error-content">
-      <h1 class="error-code">403</h1>
-      <h2 class="error-title">权限不足</h2>
-      <p class="error-desc">您没有访问此页面的权限，请联系管理员</p>
-      <el-button type="primary" @click="$router.push('/dashboard')">返回工作台</el-button>
+      <h1 class="error-code">{{ $t('errors.forbidden.title') }}</h1>
+      <h2 class="error-title">{{ $t('errors.forbidden.subtitle') }}</h2>
+      <p class="error-desc">{{ $t('errors.forbidden.description') }}</p>
+      <el-button type="primary" @click="$router.push('/dashboard')">{{ $t('errors.forbidden.backHome') }}</el-button>
     </div>
   </div>
 </template>

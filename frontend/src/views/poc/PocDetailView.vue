@@ -1,13 +1,13 @@
 <template>
   <div v-loading="loading" class="poc-detail-view">
-    <PageHeader :title="poc?.name || 'POC 详情'">
+    <PageHeader :title="poc?.name || $t('nav.pocDetail')">
       <template #actions>
-        <el-button @click="$router.push('/pocs')">返回</el-button>
-        <el-button v-if="canEdit" :icon="Edit" @click="$router.push(`/pocs/${pocId}/edit`)">编辑</el-button>
-        <el-button v-if="canEdit" :icon="CopyDocument" @click="handleClone">克隆</el-button>
+        <el-button @click="$router.push('/pocs')">{{ $t('common.action.back') }}</el-button>
+        <el-button v-if="canEdit" :icon="Edit" @click="$router.push(`/pocs/${pocId}/edit`)">{{ $t('common.action.edit') }}</el-button>
+        <el-button v-if="canEdit" :icon="CopyDocument" @click="handleClone">{{ $t('pocDetail.clone') }}</el-button>
         <el-dropdown v-if="canEdit" trigger="click" @command="handleStatusChange">
           <el-button :icon="Refresh">
-            {{ STATUS_MAP[poc?.status || ''] || poc?.status }}
+            {{ STATUS_MAP[poc?.status || ''] ? $t(STATUS_MAP[poc?.status || '']) : poc?.status }}
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
@@ -16,12 +16,12 @@
                 :key="s"
                 :command="s"
               >
-                {{ STATUS_MAP[s] || s }}
+                {{ $t(STATUS_MAP[s]) || s }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button v-if="canEdit" type="danger" :icon="Delete" @click="handleDelete">删除</el-button>
+        <el-button v-if="canEdit" type="danger" :icon="Delete" @click="handleDelete">{{ $t('common.action.delete') }}</el-button>
       </template>
     </PageHeader>
 
@@ -29,65 +29,65 @@
       <!-- 左列：元数据 -->
       <div class="detail-left">
         <div class="meta-section">
-          <h3 class="section-title">基本信息</h3>
+          <h3 class="section-title">{{ $t('pocDetail.sections.basic') }}</h3>
           <div class="meta-grid">
             <div class="meta-item">
-              <span class="meta-label">名称</span>
+              <span class="meta-label">{{ $t('common.columns.name') }}</span>
               <span class="meta-value mono">{{ poc.name }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">标题</span>
+              <span class="meta-label">{{ $t('common.columns.title') }}</span>
               <span class="meta-value">{{ poc.title || '-' }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">严重级别</span>
+              <span class="meta-label">{{ $t('common.columns.severity') }}</span>
               <span class="meta-value"><SeverityBadge :severity="poc.severity" /></span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">状态</span>
+              <span class="meta-label">{{ $t('common.columns.status') }}</span>
               <span class="meta-value"><StatusBadge :status="poc.status" /></span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">来源</span>
-              <span class="meta-value">{{ SOURCE_MAP[poc.source] || poc.source }}</span>
+              <span class="meta-label">{{ $t('pocDetail.fields.source') }}</span>
+              <span class="meta-value">{{ SOURCE_MAP[poc.source] ? $t(SOURCE_MAP[poc.source]) : poc.source }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">格式</span>
-              <span class="meta-value">{{ FORMAT_MAP[poc.format] || poc.format }}</span>
+              <span class="meta-label">{{ $t('pocDetail.fields.format') }}</span>
+              <span class="meta-value">{{ FORMAT_MAP[poc.format] ? $t(FORMAT_MAP[poc.format]) : poc.format }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">作者</span>
+              <span class="meta-label">{{ $t('common.columns.author') }}</span>
               <span class="meta-value">{{ poc.author || '-' }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">版本</span>
+              <span class="meta-label">{{ $t('pocDetail.fields.version') }}</span>
               <span class="meta-value">v{{ poc.version }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">内容哈希</span>
+              <span class="meta-label">{{ $t('pocDetail.fields.contentHash') }}</span>
               <span class="meta-value mono small">{{ poc.content_hash?.slice(0, 16) }}...</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">创建时间</span>
+              <span class="meta-label">{{ $t('pocDetail.fields.createdAt') }}</span>
               <span class="meta-value">{{ formatDate(poc.created_at) }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">更新时间</span>
+              <span class="meta-label">{{ $t('common.columns.updatedAt') }}</span>
               <span class="meta-value">{{ formatDate(poc.updated_at) }}</span>
             </div>
           </div>
         </div>
 
         <div v-if="poc.description" class="meta-section">
-          <h3 class="section-title">描述</h3>
+          <h3 class="section-title">{{ $t('pocDetail.sections.description') }}</h3>
           <p class="description-text">{{ poc.description }}</p>
         </div>
 
         <div class="meta-section">
-          <h3 class="section-title">关联信息</h3>
+          <h3 class="section-title">{{ $t('pocDetail.sections.relation') }}</h3>
           <div class="meta-grid">
             <div class="meta-item">
-              <span class="meta-label">CVE 编号</span>
+              <span class="meta-label">{{ $t('pocDetail.fields.cveId') }}</span>
               <span class="meta-value">
                 <template v-if="poc.cve_ids?.length">
                   <el-tag v-for="cve in poc.cve_ids" :key="cve" size="small" class="cve-tag">{{ cve }}</el-tag>
@@ -96,7 +96,7 @@
               </span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">标签</span>
+              <span class="meta-label">{{ $t('common.columns.tags') }}</span>
               <span class="meta-value">
                 <template v-if="poc.tags?.length">
                   <TagChip v-for="tag in poc.tags" :key="tag.id" :tag="tag" class="detail-tag" />
@@ -110,10 +110,10 @@
                 <template v-if="poc.fofa_syntax">
                   <code class="fofa-syntax">{{ poc.fofa_syntax }}</code>
                   <div class="syntax-actions">
-                    <el-tooltip content="复制 FOFA 语法" placement="top">
+                    <el-tooltip :content="$t('pocDetail.copyFofa')" placement="top">
                       <el-button text size="small" :icon="CopyDocument" @click="copySyntax('fofa')" />
                     </el-tooltip>
-                    <el-tooltip content="跳转 FOFA 搜索" placement="top">
+                    <el-tooltip :content="$t('pocDetail.searchFofa')" placement="top">
                       <el-button text size="small" :icon="Link" @click="searchSyntax('fofa')" />
                     </el-tooltip>
                   </div>
@@ -127,10 +127,10 @@
                 <template v-if="poc.shodan_syntax">
                   <code class="fofa-syntax">{{ poc.shodan_syntax }}</code>
                   <div class="syntax-actions">
-                    <el-tooltip content="复制 Shodan 语法" placement="top">
+                    <el-tooltip :content="$t('pocDetail.copyShodan')" placement="top">
                       <el-button text size="small" :icon="CopyDocument" @click="copySyntax('shodan')" />
                     </el-tooltip>
-                    <el-tooltip content="跳转 Shodan 搜索" placement="top">
+                    <el-tooltip :content="$t('pocDetail.searchShodan')" placement="top">
                       <el-button text size="small" :icon="Link" @click="searchSyntax('shodan')" />
                     </el-tooltip>
                   </div>
@@ -144,10 +144,10 @@
                 <template v-if="poc.publicwww_syntax">
                   <code class="fofa-syntax">{{ poc.publicwww_syntax }}</code>
                   <div class="syntax-actions">
-                    <el-tooltip content="复制 PublicWWW 语法" placement="top">
+                    <el-tooltip :content="$t('pocDetail.copyPublicwww')" placement="top">
                       <el-button text size="small" :icon="CopyDocument" @click="copySyntax('publicwww')" />
                     </el-tooltip>
-                    <el-tooltip content="跳转 PublicWWW 搜索" placement="top">
+                    <el-tooltip :content="$t('pocDetail.searchPublicwww')" placement="top">
                       <el-button text size="small" :icon="Link" @click="searchSyntax('publicwww')" />
                     </el-tooltip>
                   </div>
@@ -156,7 +156,7 @@
               </span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">参考链接</span>
+              <span class="meta-label">{{ $t('pocForm.fields.references') }}</span>
               <span class="meta-value">
                 <template v-if="poc.references?.length">
                   <a
@@ -173,7 +173,7 @@
 
         <!-- 版本历史 -->
         <div class="meta-section">
-          <h3 class="section-title">版本历史</h3>
+          <h3 class="section-title">{{ $t('pocDetail.sections.versions') }}</h3>
           <div v-if="versions.length" class="version-list">
             <div v-for="v in versions" :key="v.id" class="version-item" @click="viewVersion(v)">
               <span class="version-seq">v{{ v.version_seq }}</span>
@@ -181,33 +181,33 @@
               <span class="version-hash">{{ v.content_hash?.slice(0, 8) }}</span>
             </div>
           </div>
-          <p v-else class="no-data">暂无版本记录</p>
+          <p v-else class="no-data">{{ $t('pocDetail.noVersions') }}</p>
         </div>
 
         <!-- 来源溯源 -->
         <div class="meta-section">
-          <h3 class="section-title">来源溯源</h3>
+          <h3 class="section-title">{{ $t('pocDetail.sections.sourceRecords') }}</h3>
           <div v-if="sourceRecords.length" class="source-list">
             <div v-for="r in sourceRecords" :key="r.id" class="source-item">
               <span class="source-type">{{ r.source_type }}</span>
               <span v-if="r.source_url" class="source-url">{{ r.source_url }}</span>
             </div>
           </div>
-          <p v-else class="no-data">暂无溯源记录</p>
+          <p v-else class="no-data">{{ $t('pocDetail.noSourceRecords') }}</p>
         </div>
       </div>
 
       <!-- 右列：代码/文档内容 -->
       <div class="detail-right">
         <div class="code-header">
-          <h3 class="section-title">{{ isMarkdown ? '文档内容' : 'POC 内容' }}</h3>
+          <h3 class="section-title">{{ isMarkdown ? $t('pocDetail.docContent') : $t('pocDetail.pocContent') }}</h3>
           <div class="code-header-actions">
             <el-radio-group v-if="isMarkdown" v-model="mdView" size="small" class="md-view-switch">
-              <el-radio-button value="rendered">渲染</el-radio-button>
-              <el-radio-button value="raw">源码</el-radio-button>
+              <el-radio-button value="rendered">{{ $t('pocDetail.render') }}</el-radio-button>
+              <el-radio-button value="raw">{{ $t('pocDetail.source') }}</el-radio-button>
             </el-radio-group>
-            <el-button v-if="isMarkdown" size="small" text :icon="Download" @click="downloadMd">导出 .md</el-button>
-            <el-button size="small" text :icon="CopyDocument" @click="copyContent">复制全文</el-button>
+            <el-button v-if="isMarkdown" size="small" text :icon="Download" @click="downloadMd">{{ $t('pocDetail.exportMd') }}</el-button>
+            <el-button size="small" text :icon="CopyDocument" @click="copyContent">{{ $t('pocDetail.copyAll') }}</el-button>
           </div>
         </div>
         <div class="code-container" :class="{ 'is-markdown': isMarkdown && mdView === 'rendered' }">
@@ -217,7 +217,7 @@
               <MarkdownRenderer :content="poc.content" @headings="(h: MdHeading[]) => (toc = h)" />
             </div>
             <aside v-if="toc.length" class="md-toc">
-              <div class="md-toc-title">目录</div>
+              <div class="md-toc-title">{{ $t('pocDetail.toc') }}</div>
               <a
                 v-for="h in toc"
                 :key="h.slug"
@@ -234,15 +234,15 @@
     </div>
 
     <!-- 克隆对话框 -->
-    <el-dialog v-model="cloneDialogVisible" title="克隆 POC" width="420">
+    <el-dialog v-model="cloneDialogVisible" :title="$t('pocDetail.cloneTitle')" width="420">
       <el-form>
-        <el-form-item label="新名称" required>
-          <el-input v-model="cloneName" placeholder="输入新 POC 名称" />
+        <el-form-item :label="$t('pocDetail.newName')" required>
+          <el-input v-model="cloneName" :placeholder="$t('pocDetail.newNamePlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="cloneDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="cloning" @click="confirmClone">确认克隆</el-button>
+        <el-button @click="cloneDialogVisible = false">{{ $t('common.action.cancel') }}</el-button>
+        <el-button type="primary" :loading="cloning" @click="confirmClone">{{ $t('pocDetail.confirmClone') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -251,6 +251,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Edit, CopyDocument, Delete, Refresh, Download, Link } from '@element-plus/icons-vue'
 import { getPoc, deletePoc as apiDeletePoc, changePocStatus, clonePoc, getPocVersions, getPocSourceRecords } from '@/api/poc'
@@ -269,6 +270,7 @@ import type { PocDetail, PocVersion, PocSourceRecord } from '@/types/poc'
 const route = useRoute()
 const router = useRouter()
 const { canEdit } = usePermission()
+const { t } = useI18n()
 
 const pocId = computed(() => Number(route.params.id))
 const loading = ref(true)
@@ -314,13 +316,13 @@ function handleClone() {
 
 async function confirmClone() {
   if (!cloneName.value) {
-    ElMessage.warning('请输入新名称')
+    ElMessage.warning(t('pocDetail.messages.newNameRequired'))
     return
   }
   cloning.value = true
   try {
     const newPoc = await clonePoc(pocId.value, cloneName.value)
-    ElMessage.success('克隆成功')
+    ElMessage.success(t('pocDetail.messages.cloneSuccess'))
     cloneDialogVisible.value = false
     router.push(`/pocs/${newPoc.id}`)
   } catch {
@@ -333,7 +335,7 @@ async function confirmClone() {
 async function handleStatusChange(status: string) {
   try {
     await changePocStatus(pocId.value, status)
-    ElMessage.success('状态更新成功')
+    ElMessage.success(t('pocDetail.messages.statusUpdated'))
     loadData()
   } catch {
     // handled by interceptor
@@ -343,7 +345,7 @@ async function handleStatusChange(status: string) {
 async function handleDelete() {
   try {
     await apiDeletePoc(pocId.value)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.message.deleteSuccess'))
     router.push('/pocs')
   } catch {
     // handled by interceptor
@@ -353,7 +355,7 @@ async function handleDelete() {
 async function copyContent() {
   if (poc.value?.content) {
     await copyToClipboard(poc.value.content)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success(t('pocDetail.messages.contentCopied'))
   }
 }
 
@@ -369,7 +371,7 @@ async function copySyntax(type: string) {
   const val = (poc.value as any)?.[key]
   if (val) {
     await copyToClipboard(val)
-    ElMessage.success(`已复制 ${type.toUpperCase()} 语法`)
+    ElMessage.success(t('pocDetail.messages.syntaxCopied', { type: type.toUpperCase() }))
   }
 }
 
@@ -404,7 +406,7 @@ function scrollToHeading(slug: string) {
 }
 
 function viewVersion(v: PocVersion) {
-  ElMessage.info(`查看版本 v${v.version_seq} 请使用后端 API`)
+  ElMessage.info(t('pocDetail.messages.viewVersionHint', { seq: v.version_seq }))
 }
 
 onMounted(loadData)

@@ -6,11 +6,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { STATUS_MAP, STATUS_COLORS } from '@/utils/constants'
+import { useI18n } from 'vue-i18n'
+import { STATUS_MAP } from '@/utils/constants'
 
 const props = defineProps<{ status: string }>()
+const { t } = useI18n()
 
-const label = computed(() => STATUS_MAP[props.status] || props.status)
+const label = computed(() => t(STATUS_MAP[props.status] || props.status))
 </script>
 
 <style scoped lang="scss">

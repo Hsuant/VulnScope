@@ -1,0 +1,22 @@
+// Navigation & route titles (SidebarNav / routes.ts meta.title / TopBar)
+export default {
+  dashboard: 'Dashboard',
+  pocManage: 'POC Management',
+  pocList: 'POC List',
+  pocCreate: 'New POC',
+  pocDetail: 'POC Detail',
+  pocEdit: 'Edit POC',
+  pocImport: 'Import POC',
+  vulnManage: 'CVE Database',
+  vulnList: 'CVE List',
+  vulnCreate: 'New CVE',
+  vulnDetail: 'CVE Detail',
+  vulnEdit: 'Edit CVE',
+  vulnImport: 'Import CVE',
+  tagManage: 'Tag Management',
+  pluginPanel: 'Plugin Panel',
+  systemManage: 'System',
+  userManage: 'User Management',
+  auditLog: 'Audit Log',
+  profile: 'Profile',
+}

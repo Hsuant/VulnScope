@@ -1,0 +1,32 @@
+// CVE 详情页（VulnDetailView.vue）
+export default {
+  backToList: '返回列表',
+  relatedPoc: '关联 POC',
+  unrated: '未评定',
+  versionRange: '版本范围',
+  noDescription: '暂无描述',
+  noProducts: '暂无受影响产品记录',
+  noPatch: '暂无官方补丁信息',
+  noWorkaround: '暂无临时方案',
+  noReferences: '暂无参考链接',
+  noRelatedPoc: '暂无关联 POC',
+  copyVector: '复制向量',
+  copiedVector: '已复制 CVSS 向量',
+  deleteConfirm: '确定要删除 {cve} 吗？此操作不可恢复。',
+  pocCount: '{count} 个',
+  itemCount: '{count} 项',
+  refCount: '{count} 条',
+  metrics: {
+    severity: '严重级别',
+    cvss: 'CVSS 评分',
+    vendor: '厂商',
+  },
+  sections: {
+    cvssVector: 'CVSS 指标向量',
+    description: '漏洞描述',
+    products: '受影响产品',
+    remediation: '修复建议',
+    references: '参考链接',
+    relatedPoc: '关联 POC',
+  },
+}

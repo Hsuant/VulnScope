@@ -1,0 +1,32 @@
+// CVE detail page (VulnDetailView.vue)
+export default {
+  backToList: 'Back to list',
+  relatedPoc: 'Related POC',
+  unrated: 'Unrated',
+  versionRange: 'Version range',
+  noDescription: 'No description',
+  noProducts: 'No affected products recorded',
+  noPatch: 'No official patch info',
+  noWorkaround: 'No workaround',
+  noReferences: 'No references',
+  noRelatedPoc: 'No related POC',
+  copyVector: 'Copy vector',
+  copiedVector: 'Copied CVSS vector',
+  deleteConfirm: 'Delete {cve}? This cannot be undone.',
+  pocCount: '{count}',
+  itemCount: '{count}',
+  refCount: '{count}',
+  metrics: {
+    severity: 'Severity',
+    cvss: 'CVSS Score',
+    vendor: 'Vendor',
+  },
+  sections: {
+    cvssVector: 'CVSS Vector',
+    description: 'Description',
+    products: 'Affected Products',
+    remediation: 'Remediation',
+    references: 'References',
+    relatedPoc: 'Related POC',
+  },
+}

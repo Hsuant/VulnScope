@@ -1,9 +1,9 @@
 <template>
   <div v-loading="loading" class="poc-form-view">
-    <PageHeader :title="isEdit ? '编辑 POC' : '新建 POC'">
+    <PageHeader :title="isEdit ? $t('nav.pocEdit') : $t('nav.pocCreate')">
       <template #actions>
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" :loading="saving" :icon="Check" @click="handleSave">保存</el-button>
+        <el-button @click="handleCancel">{{ $t('common.action.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" :icon="Check" @click="handleSave">{{ $t('common.action.save') }}</el-button>
       </template>
     </PageHeader>
 
@@ -11,67 +11,67 @@
       <!-- 左列：表单 -->
       <div class="form-left">
         <div class="form-section">
-          <h3 class="section-title">基本信息</h3>
+          <h3 class="section-title">{{ $t('pocForm.sections.basic') }}</h3>
           <el-form ref="formRef" :model="form" :rules="rules" label-width="80px" label-position="left">
-            <el-form-item label="名称" prop="name">
-              <el-input v-model="form.name" placeholder="字母数字汉字开头，允许字母、数字、汉字、连字符和空格" :disabled="isEdit" />
+            <el-form-item :label="$t('pocForm.fields.name')" prop="name">
+              <el-input v-model="form.name" :placeholder="$t('pocForm.placeholders.name')" :disabled="isEdit" />
             </el-form-item>
-            <el-form-item label="标题" prop="title">
-              <el-input v-model="form.title" placeholder="显示标题，如 Apache Struts2 S2-045 RCE" />
+            <el-form-item :label="$t('pocForm.fields.title')" prop="title">
+              <el-input v-model="form.title" :placeholder="$t('pocForm.placeholders.title')" />
             </el-form-item>
-            <el-form-item label="严重级别" prop="severity">
+            <el-form-item :label="$t('pocForm.fields.severity')" prop="severity">
               <el-select v-model="form.severity" class="w-full">
-                <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+                <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="状态" prop="status">
+            <el-form-item :label="$t('pocForm.fields.status')" prop="status">
               <el-select v-model="form.status" class="w-full">
-                <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+                <el-option v-for="s in STATUS_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="来源" prop="source">
+            <el-form-item :label="$t('pocForm.fields.source')" prop="source">
               <el-select v-model="form.source" class="w-full">
-                <el-option v-for="s in SOURCE_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+                <el-option v-for="s in SOURCE_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="格式" prop="format">
+            <el-form-item :label="$t('pocForm.fields.format')" prop="format">
               <el-select v-model="form.format" class="w-full">
-                <el-option v-for="s in FORMAT_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+                <el-option v-for="s in FORMAT_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="作者" prop="author">
-              <el-input v-model="form.author" placeholder="作者名称" />
+            <el-form-item :label="$t('pocForm.fields.author')" prop="author">
+              <el-input v-model="form.author" :placeholder="$t('pocForm.placeholders.author')" />
             </el-form-item>
-            <el-form-item v-if="form.format === 'raw-script'" label="语言" prop="language">
-              <el-input v-model="form.language" placeholder="脚本语言，如 python、go" />
+            <el-form-item v-if="form.format === 'raw-script'" :label="$t('pocForm.fields.language')" prop="language">
+              <el-input v-model="form.language" :placeholder="$t('pocForm.placeholders.language')" />
             </el-form-item>
           </el-form>
         </div>
 
         <div class="form-section">
-          <h3 class="section-title">关联信息</h3>
+          <h3 class="section-title">{{ $t('pocForm.sections.relation') }}</h3>
           <el-form label-width="110px" label-position="left">
-            <el-form-item label="CVE 编号">
+            <el-form-item :label="$t('pocForm.fields.cveId')">
               <el-select
                 v-model="form.cve_ids"
                 multiple
                 filterable
                 allow-create
                 default-first-option
-                placeholder="输入 CVE 编号，回车添加"
+                :placeholder="$t('pocForm.placeholders.cveId')"
                 class="w-full"
               >
                 <el-option v-for="cve in form.cve_ids" :key="cve" :label="cve" :value="cve" />
               </el-select>
             </el-form-item>
-            <el-form-item label="CNVD 编号">
+            <el-form-item :label="$t('pocForm.fields.cnvdId')">
               <el-select
                 v-model="form.cnvd_ids"
                 multiple
                 filterable
                 allow-create
                 default-first-option
-                placeholder="输入 CNVD/CNNVD 编号，回车添加"
+                :placeholder="$t('pocForm.placeholders.cnvdId')"
                 class="w-full"
               >
                 <el-option v-for="cnvd in form.cnvd_ids" :key="cnvd" :label="cnvd" :value="cnvd" />
@@ -80,25 +80,25 @@
             <el-form-item label="FOFA">
               <el-input
                 v-model="form.fofa_syntax"
-                placeholder="资产探测 FOFA 语法，如 app=&quot;Apache-Struts2&quot;"
+                :placeholder="$t('pocForm.placeholders.fofa')"
                 clearable
               />
             </el-form-item>
             <el-form-item label="Shodan">
               <el-input
                 v-model="form.shodan_syntax"
-                placeholder="资产探测 Shodan 语法，如 product:&quot;Apache Struts&quot;"
+                :placeholder="$t('pocForm.placeholders.shodan')"
                 clearable
               />
             </el-form-item>
             <el-form-item label="PublicWWW">
               <el-input
                 v-model="form.publicwww_syntax"
-                placeholder="资产探测 PublicWWW 语法，如 title=&quot;Apache Struts&quot;"
+                :placeholder="$t('pocForm.placeholders.publicwww')"
                 clearable
               />
             </el-form-item>
-            <el-form-item label="参考链接">
+            <el-form-item :label="$t('pocForm.fields.references')">
               <div class="reference-list w-full">
                 <div
                   v-for="(ref, idx) in form.references"
@@ -109,7 +109,7 @@
                     <el-input
                       v-model="ref.url"
                       size="small"
-                      placeholder="参考链接 URL"
+                      :placeholder="$t('pocForm.placeholders.refUrl')"
                       class="ref-url"
                     >
                       <template #prefix>
@@ -119,7 +119,7 @@
                     <el-input
                       v-model="ref.label"
                       size="small"
-                      placeholder="标题（可选）"
+                      :placeholder="$t('pocForm.placeholders.refLabel')"
                       class="ref-label"
                     />
                   </div>
@@ -149,16 +149,16 @@
                   class="mt-sm"
                   @click="addRef"
                 >
-                  添加参考链接
+                  {{ $t('pocForm.addReference') }}
                 </el-button>
               </div>
             </el-form-item>
-            <el-form-item label="标签">
+            <el-form-item :label="$t('pocForm.fields.tags')">
               <el-select
                 v-model="form.tag_ids"
                 multiple
                 filterable
-                placeholder="选择标签"
+                :placeholder="$t('pocForm.placeholders.tags')"
                 class="w-full"
               >
                 <el-option
@@ -169,19 +169,19 @@
                 />
               </el-select>
             </el-form-item>
-            <el-form-item label="描述">
+            <el-form-item :label="$t('pocForm.fields.description')">
               <el-input
                 v-model="form.description"
                 type="textarea"
                 :rows="4"
-                placeholder="漏洞描述信息"
+                :placeholder="$t('pocForm.placeholders.description')"
               />
             </el-form-item>
           </el-form>
         </div>
 
         <div class="form-section">
-          <h3 class="section-title">受影响版本</h3>
+          <h3 class="section-title">{{ $t('pocForm.sections.affected') }}</h3>
           <el-form label-width="80px" label-position="left">
             <div class="affected-list">
               <div
@@ -191,30 +191,30 @@
               >
                 <div class="affected-fields">
                   <div class="affected-group">
-                    <span class="affected-label">起始</span>
+                    <span class="affected-label">{{ $t('pocForm.affectedStart') }}</span>
                     <el-select v-model="item.version_start_type" size="small" class="op-select">
-                      <el-option label=">=" value=">=" />
+                      <el-option label="≥" value=">=" />
                       <el-option label=">" value=">" />
-                      <el-option label="任意" value="" />
+                      <el-option :label="$t('pocForm.anyOp')" value="" />
                     </el-select>
                     <el-input
                       v-model="item.version_start"
                       size="small"
-                      placeholder="如 1.0.0"
+                      placeholder="1.0.0"
                       class="ver-input"
                     />
                   </div>
                   <div class="affected-group">
-                    <span class="affected-label">截止</span>
+                    <span class="affected-label">{{ $t('pocForm.affectedEnd') }}</span>
                     <el-select v-model="item.version_end_type" size="small" class="op-select">
-                      <el-option label="<=" value="<=" />
+                      <el-option label="≤" value="<=" />
                       <el-option label="<" value="<" />
-                      <el-option label="任意" value="" />
+                      <el-option :label="$t('pocForm.anyOp')" value="" />
                     </el-select>
                     <el-input
                       v-model="item.version_end"
                       size="small"
-                      placeholder="如 2.0.0"
+                      placeholder="2.0.0"
                       class="ver-input"
                     />
                   </div>
@@ -230,7 +230,7 @@
               </div>
             </div>
             <el-button text type="primary" :icon="Plus" size="small" @click="addAffected">
-              添加版本范围
+              {{ $t('pocForm.addVersionRange') }}
             </el-button>
           </el-form>
         </div>
@@ -240,7 +240,7 @@
       <div class="form-right">
         <div class="form-section editor-section">
           <div class="editor-header">
-            <h3 class="section-title">POC 内容 *</h3>
+            <h3 class="section-title">{{ $t('pocForm.contentTitle') }}</h3>
             <div class="editor-tools">
               <el-radio-group
                 v-if="canBuild"
@@ -248,8 +248,8 @@
                 size="small"
                 class="mode-switch"
               >
-                <el-radio-button value="builder">表单构建</el-radio-button>
-                <el-radio-button value="source">源码</el-radio-button>
+                <el-radio-button value="builder">{{ $t('pocForm.modeBuilder') }}</el-radio-button>
+                <el-radio-button value="source">{{ $t('pocForm.modeSource') }}</el-radio-button>
               </el-radio-group>
             </div>
           </div>
@@ -258,8 +258,8 @@
           <div v-if="canBuild && editMode === 'builder'" class="editor-container builder-container">
             <PocBuilder :state="builderState" />
             <div class="builder-actions">
-              <el-button size="small" :icon="Refresh" @click="syncFromBuilder">同步到源码</el-button>
-              <el-button size="small" :icon="Download" @click="editMode = 'source'">查看源码</el-button>
+              <el-button size="small" :icon="Refresh" @click="syncFromBuilder">{{ $t('pocForm.syncToSource') }}</el-button>
+              <el-button size="small" :icon="Download" @click="editMode = 'source'">{{ $t('pocForm.viewSource') }}</el-button>
             </div>
           </div>
 
@@ -267,7 +267,7 @@
           <div v-else class="editor-container">
             <div v-if="canBuild" class="source-hint">
               <el-icon :size="14"><InfoFilled /></el-icon>
-              <span>修改源码后切回「表单构建」将自动解析回填字段（高级语法可能无法完全还原）</span>
+              <span>{{ $t('pocForm.sourceHint') }}</span>
             </div>
             <!-- Markdown 编辑/预览 -->
             <MarkdownEditor v-if="isMarkdown" v-model="form.content" />
@@ -283,7 +283,7 @@
 
           <div v-if="!canBuild && !isMarkdown" class="format-hint">
             <el-icon :size="14"><InfoFilled /></el-icon>
-            <span>当前格式（{{ formatLabel }}）为脚本类，仅支持源码模式编辑</span>
+            <span>{{ $t('pocForm.scriptFormatHint', { format: formatLabel }) }}</span>
           </div>
         </div>
       </div>
@@ -294,6 +294,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Check, Refresh, Download, InfoFilled, Delete, Plus, Link, Loading } from '@element-plus/icons-vue'
 import { getPoc, createPoc, updatePoc, verifyUrl } from '@/api/poc'
@@ -311,6 +312,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const isEdit = computed(() => !!route.params.id)
 const pocId = computed(() => Number(route.params.id))
@@ -357,16 +359,19 @@ const form = reactive({
 
 const canBuild = computed(() => canBuildFormat(form.format))
 const isMarkdown = computed(() => form.format === 'markdown')
-const formatLabel = computed(() => FORMAT_MAP[form.format] || form.format)
+const formatLabel = computed(() => {
+  const key = FORMAT_MAP[form.format]
+  return key ? t(key) : form.format
+})
 
-const rules: Record<string, any> = {
+const rules = computed<Record<string, any>>(() => ({
   name: [
-    { required: true, message: '请输入 POC 名称', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9一-龥][a-zA-Z0-9一-龥 -]*$/, message: '以字母、数字或汉字开头，仅允许字母、数字、汉字、连字符 "-" 和空格', trigger: 'blur' },
+    { required: true, message: t('pocForm.rules.nameRequired'), trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9一-龥][a-zA-Z0-9一-龥 -]*$/, message: t('pocForm.rules.namePattern'), trigger: 'blur' },
   ],
-  severity: [{ required: true, message: '请选择严重级别', trigger: 'change' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
-}
+  severity: [{ required: true, message: t('pocForm.rules.severityRequired'), trigger: 'change' }],
+  status: [{ required: true, message: t('pocForm.rules.statusRequired'), trigger: 'change' }],
+}))
 
 const editorPlaceholder = computed(() => {
   const map: Record<string, string> = {
@@ -445,7 +450,7 @@ class ExamplePOC(POCBase):
     'raw-script': '#!/usr/bin/env python3\n# 原始脚本/模板内容\n# 支持任意语言，language 字段标注脚本类型\n\ndef verify(target: str) -> dict:\n    """POC 验证函数"""\n    result = {"vulnerable": False}\n    # 在此编写验证逻辑\n    return result',
     markdown: '# 漏洞概述\n\n简要描述漏洞背景与影响。\n\n## 影响版本\n\n- 1.0.0 ~ 2.0.0\n\n## 复现\n\n```http\nGET / HTTP/1.1\nHost: {{Hostname}}\n```\n\n## 修复建议\n\n升级至最新版本。',
   }
-  return map[form.format] || '输入 POC 内容...'
+  return map[form.format] || t('pocForm.editorPlaceholderFallback')
 })
 
 async function loadData() {
@@ -521,7 +526,7 @@ function syncFromBuilder() {
   if (!canBuild.value) return
   form.content = generateContent(buildContext())
   sourceDirty.value = false
-  ElMessage.success('已同步到源码')
+  ElMessage.success(t('pocForm.messages.synced'))
 }
 
 function markSourceDirty() {
@@ -608,7 +613,7 @@ async function handleSave() {
   }
 
   if (!form.content.trim()) {
-    ElMessage.warning('请填写 POC 内容（请求/匹配器至少一项）')
+    ElMessage.warning(t('pocForm.messages.contentRequired'))
     return
   }
 
@@ -622,7 +627,7 @@ async function handleSave() {
       return m.words.some((w) => w.trim() !== '')
     })
     if (!hasMatcher) {
-      ElMessage.warning('请至少添加一条有效的匹配规则（关键词/状态码/DSL）')
+      ElMessage.warning(t('pocForm.messages.matcherRequired'))
       return
     }
     const protoOk =
@@ -636,7 +641,7 @@ async function handleSave() {
       (builderState.protocol === 'websocket' && builderState.websocket.address.trim() !== '') ||
       (builderState.protocol === 'dns' && builderState.dns.domains.some((d) => d.trim() !== ''))
     if (!protoOk) {
-      ElMessage.warning('请填写当前协议下必要的请求字段')
+      ElMessage.warning(t('pocForm.messages.protoFieldsRequired'))
       return
     }
   }
@@ -669,7 +674,7 @@ async function handleSave() {
         affected_versions: form.affected_versions.length ? form.affected_versions : undefined,
         extra_meta: extraMeta,
       })
-      ElMessage.success('更新成功')
+      ElMessage.success(t('pocForm.messages.updateSuccess'))
       router.push(`/pocs/${pocId.value}`)
     } else {
       const newPoc = await createPoc({
@@ -693,7 +698,7 @@ async function handleSave() {
         affected_versions: form.affected_versions.length ? form.affected_versions : undefined,
         extra_meta: extraMeta,
       })
-      ElMessage.success('创建成功')
+      ElMessage.success(t('pocForm.messages.createSuccess'))
       router.push(`/pocs/${newPoc.id}`)
     }
   } catch {
@@ -741,9 +746,9 @@ async function verifyRef(idx: number) {
     const res = await verifyUrl(ref.url.trim())
     ref._verified = res.reachable
     if (!res.reachable) {
-      ElMessage.warning(`链接不可达: ${res.error || `HTTP ${res.status_code}`}`)
+      ElMessage.warning(t('pocForm.messages.linkUnreachable', { detail: res.error || `HTTP ${res.status_code}` }))
     } else {
-      ElMessage.success(`链接可达 (HTTP ${res.status_code})`)
+      ElMessage.success(t('pocForm.messages.linkReachable', { code: res.status_code }))
     }
   } catch {
     ref._verified = false

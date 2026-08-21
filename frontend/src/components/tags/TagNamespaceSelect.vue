@@ -1,7 +1,7 @@
 <template>
   <el-select
     :model-value="modelValue"
-    :placeholder="placeholder"
+    :placeholder="placeholder || $t('tagSelect.selectPlaceholder')"
     filterable
     remote
     :remote-method="onSearch"
@@ -13,7 +13,7 @@
     :popper-class="popperClass"
     :default-first-option="true"
     :no-data-text="noDataText"
-    loading-text="加载中..."
+    :loading-text="$t('tagSelect.loading')"
     @change="onChange"
     @clear="onClear"
     @focus="onFocus"
@@ -26,7 +26,7 @@
       :value="tag.id"
     >
       <div class="tag-option-item">
-        <span class="tag-option-color" :style="{ background: tag.color || '#4a8cba' }" />
+        <span class="tag-option-color" :style="{ background: tag.color || 'var(--vs-accent)' }" />
         <span class="tag-option-name">{{ tag.name }}</span>
         <span class="tag-option-desc" v-if="tag.description">- {{ tag.description }}</span>
         <span class="tag-option-count" v-if="tag.poc_count != null">{{ tag.poc_count }} POC</span>
@@ -47,8 +47,11 @@
  * - 选中后下拉框显示选中的标签名称
  */
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listTags } from '@/api/tag'
 import type { TagItem } from '@/types/tag'
+
+const { t } = useI18n()
 
 interface Props {
   /** 标签命名空间，如 "Vendor" / "OSS" */
@@ -71,7 +74,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
-  placeholder: '请选择',
+  placeholder: '',
   multiple: false,
   collapseTags: false,
   collapseTagsTooltip: false,
@@ -98,8 +101,8 @@ const filteredOptions = computed<TagItem[]>(() => displayTags.value)
 /** 无数据提示文本 */
 const noDataText = computed(() => {
   if (loading.value) return ''
-  if (searchKeyword.value) return '无匹配的标签'
-  return '请输入关键词搜索'
+  if (searchKeyword.value) return t('tagSelect.noMatch')
+  return t('tagSelect.searchHint')
 })
 
 // ── 数据加载与搜索 ────────────────────────────────────────────────
@@ -199,7 +202,7 @@ watch(() => props.namespace, () => {
 
 .tag-option-desc {
   font-size: 12px;
-  color: #909399;
+  color: var(--vs-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

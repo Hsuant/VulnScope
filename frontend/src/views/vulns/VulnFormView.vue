@@ -1,13 +1,13 @@
 <template>
   <div v-loading="loading" class="vuln-form-view">
-    <PageHeader :title="isEdit ? '编辑 CVE' : '新建 CVE'" :description="headerDesc">
+    <PageHeader :title="isEdit ? $t('nav.vulnEdit') : $t('nav.vulnCreate')" :description="headerDesc">
       <template #actions>
-        <el-button :icon="Back" @click="cancel">取消</el-button>
+        <el-button :icon="Back" @click="cancel">{{ $t('common.action.cancel') }}</el-button>
         <el-button v-if="!isEdit" :icon="Refresh" :loading="savingContinue" @click="handleSaveAndContinue">
-          保存并继续
+          {{ $t('vulnForm.saveContinue') }}
         </el-button>
         <el-button type="primary" :icon="Edit" :loading="saving" @click="handleSave">
-          {{ isEdit ? '保存' : '创建' }}
+          {{ isEdit ? $t('common.action.save') : $t('common.action.create') }}
         </el-button>
       </template>
     </PageHeader>
@@ -22,8 +22,8 @@
     >
       <!-- 基本信息 -->
       <section class="detail-section">
-        <h3 class="section-title"><i class="title-bar" />基本信息</h3>
-        <el-form-item label="CVE 编号" prop="cve_id">
+        <h3 class="section-title"><i class="title-bar" />{{ $t('vulnForm.sections.basic') }}</h3>
+        <el-form-item :label="$t('vulnForm.fields.cveId')" prop="cve_id">
           <el-input
             v-model="form.cve_id"
             :disabled="isEdit"
@@ -31,21 +31,21 @@
             class="mono"
           />
           <span class="field-hint">
-            {{ isEdit ? 'CVE 编号为漏洞标识，不可修改' : '格式：CVE-年份-编号，如 CVE-2021-44228' }}
+            {{ isEdit ? $t('vulnForm.cveIdHintEdit') : $t('vulnForm.cveIdHintNew') }}
           </span>
         </el-form-item>
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="form.title" placeholder="漏洞标题" maxlength="255" show-word-limit />
+        <el-form-item :label="$t('vulnForm.fields.title')" prop="title">
+          <el-input v-model="form.title" :placeholder="$t('vulnForm.placeholders.title')" maxlength="255" show-word-limit />
         </el-form-item>
-        <el-form-item label="厂商" prop="vendor">
-          <el-input v-model="form.vendor" placeholder="如 apache" maxlength="128" />
+        <el-form-item :label="$t('vulnForm.fields.vendor')" prop="vendor">
+          <el-input v-model="form.vendor" placeholder="apache" maxlength="128" />
         </el-form-item>
-        <el-form-item label="严重级别" prop="severity">
-          <el-select v-model="form.severity" placeholder="选择级别（可留空）" clearable class="full">
-            <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="s.label" :value="s.value" />
+        <el-form-item :label="$t('vulnForm.fields.severity')" prop="severity">
+          <el-select v-model="form.severity" :placeholder="$t('vulnForm.placeholders.severity')" clearable class="full">
+            <el-option v-for="s in SEVERITY_OPTIONS" :key="s.value" :label="$t(s.label)" :value="s.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="CVSS 评分" prop="cvss">
+        <el-form-item :label="$t('vulnForm.fields.cvss')" prop="cvss">
           <el-input-number
             v-model="form.cvss"
             :min="0"
@@ -56,20 +56,20 @@
             placeholder="0–10"
           />
         </el-form-item>
-        <el-form-item label="CVSS 向量" prop="cvss_metrics">
+        <el-form-item :label="$t('vulnForm.fields.cvssMetrics')" prop="cvss_metrics">
           <el-input v-model="form.cvss_metrics" placeholder="CVSS:3.1/AV:N/AC:L/..." maxlength="255" class="mono" />
         </el-form-item>
       </section>
 
       <!-- 漏洞描述 -->
       <section class="detail-section">
-        <h3 class="section-title"><i class="title-bar" />漏洞描述</h3>
-        <el-form-item label="描述" prop="description">
+        <h3 class="section-title"><i class="title-bar" />{{ $t('vulnForm.sections.description') }}</h3>
+        <el-form-item :label="$t('vulnForm.fields.description')" prop="description">
           <el-input
             v-model="form.description"
             type="textarea"
             :rows="5"
-            placeholder="支持 Markdown 语法"
+            :placeholder="$t('vulnForm.placeholders.markdown')"
           />
         </el-form-item>
       </section>
@@ -77,31 +77,31 @@
       <!-- 受影响产品 -->
       <section class="detail-section">
         <div class="section-head-row">
-          <h3 class="section-title"><i class="title-bar" />受影响产品</h3>
-          <el-button size="small" :icon="Plus" @click="addProduct">添加产品</el-button>
+          <h3 class="section-title"><i class="title-bar" />{{ $t('vulnForm.sections.products') }}</h3>
+          <el-button size="small" :icon="Plus" @click="addProduct">{{ $t('vulnForm.addProduct') }}</el-button>
         </div>
-        <p v-if="!form.product.length" class="no-data">暂无受影响产品，点击「添加产品」新增</p>
+        <p v-if="!form.product.length" class="no-data">{{ $t('vulnForm.noProducts') }}</p>
         <div v-for="(p, idx) in form.product" :key="p._key" class="sub-card">
           <div class="sub-card-head">
-            <span class="sub-card-title">产品 #{{ idx + 1 }}</span>
-            <el-button text size="small" type="danger" :icon="Delete" @click="removeProduct(idx)">移除</el-button>
+            <span class="sub-card-title">{{ $t('vulnForm.productN', { n: idx + 1 }) }}</span>
+            <el-button text size="small" type="danger" :icon="Delete" @click="removeProduct(idx)">{{ $t('vulnForm.remove') }}</el-button>
           </div>
           <div class="sub-grid">
-            <el-form-item label="厂商"><el-input v-model="p.vendor" placeholder="厂商" /></el-form-item>
-            <el-form-item label="产品"><el-input v-model="p.product" placeholder="产品名" /></el-form-item>
-            <el-form-item label="精确版本"><el-input v-model="p.version" placeholder="如 2.14.1" /></el-form-item>
-            <el-form-item label="起始版本"><el-input v-model="p.version_start" placeholder="如 2.0" /></el-form-item>
-            <el-form-item label="起始类型">
+            <el-form-item :label="$t('vulnForm.fields.vendor')"><el-input v-model="p.vendor" :placeholder="$t('vulnForm.fields.vendor')" /></el-form-item>
+            <el-form-item :label="$t('vulnForm.fields.product')"><el-input v-model="p.product" :placeholder="$t('vulnForm.placeholders.productName')" /></el-form-item>
+            <el-form-item :label="$t('vulnForm.fields.exactVersion')"><el-input v-model="p.version" placeholder="2.14.1" /></el-form-item>
+            <el-form-item :label="$t('vulnForm.fields.startVersion')"><el-input v-model="p.version_start" placeholder="2.0" /></el-form-item>
+            <el-form-item :label="$t('vulnForm.fields.startType')">
               <el-select v-model="p.version_start_type" class="full">
-                <el-option label="含 (≥)" value="including" />
-                <el-option label="不含 (>)" value="excluding" />
+                <el-option :label="$t('vulnForm.including')" value="including" />
+                <el-option :label="$t('vulnForm.excluding')" value="excluding" />
               </el-select>
             </el-form-item>
-            <el-form-item label="结束版本"><el-input v-model="p.version_end" placeholder="如 2.14.1" /></el-form-item>
-            <el-form-item label="结束类型">
+            <el-form-item :label="$t('vulnForm.fields.endVersion')"><el-input v-model="p.version_end" placeholder="2.14.1" /></el-form-item>
+            <el-form-item :label="$t('vulnForm.fields.endType')">
               <el-select v-model="p.version_end_type" class="full">
-                <el-option label="含 (≤)" value="including" />
-                <el-option label="不含 (<)" value="excluding" />
+                <el-option :label="$t('vulnForm.including')" value="including" />
+                <el-option :label="$t('vulnForm.excluding')" value="excluding" />
               </el-select>
             </el-form-item>
           </div>
@@ -110,21 +110,21 @@
 
       <!-- 修复建议 -->
       <section class="detail-section">
-        <h3 class="section-title"><i class="title-bar" />修复建议</h3>
-        <el-form-item label="官方补丁">
+        <h3 class="section-title"><i class="title-bar" />{{ $t('vulnForm.sections.remediation') }}</h3>
+        <el-form-item :label="$t('vulnForm.fields.patch')">
           <el-input
             v-model="form.remediation.mitigation"
             type="textarea"
             :rows="3"
-            placeholder="官方补丁/修复方案，支持 Markdown"
+            :placeholder="$t('vulnForm.placeholders.patch')"
           />
         </el-form-item>
-        <el-form-item label="临时方案">
+        <el-form-item :label="$t('vulnForm.fields.workaround')">
           <el-input
             v-model="form.remediation.workaround"
             type="textarea"
             :rows="3"
-            placeholder="临时解决方案/规避措施，支持 Markdown"
+            :placeholder="$t('vulnForm.placeholders.workaround')"
           />
         </el-form-item>
       </section>
@@ -132,26 +132,26 @@
       <!-- 参考链接 -->
       <section class="detail-section">
         <div class="section-head-row">
-          <h3 class="section-title"><i class="title-bar" />参考链接</h3>
-          <el-button size="small" :icon="Plus" @click="addReference">添加链接</el-button>
+          <h3 class="section-title"><i class="title-bar" />{{ $t('vulnForm.sections.references') }}</h3>
+          <el-button size="small" :icon="Plus" @click="addReference">{{ $t('vulnForm.addLink') }}</el-button>
         </div>
-        <p v-if="!form.reference.length" class="no-data">暂无参考链接</p>
+        <p v-if="!form.reference.length" class="no-data">{{ $t('vulnForm.noReferences') }}</p>
         <div v-for="(r, idx) in form.reference" :key="r._key" class="ref-row">
           <span class="ref-index">{{ idx + 1 }}</span>
           <el-input v-model="r.url" placeholder="https://..." class="ref-url" />
-          <el-input v-model="r.label" placeholder="标签（可选）" class="ref-label" />
+          <el-input v-model="r.label" :placeholder="$t('vulnForm.placeholders.refLabel')" class="ref-label" />
           <el-button text type="danger" :icon="Delete" @click="removeReference(idx)" />
         </div>
       </section>
     </el-form>
 
     <div class="form-footer">
-      <el-button :icon="Back" @click="cancel">取消</el-button>
+      <el-button :icon="Back" @click="cancel">{{ $t('common.action.cancel') }}</el-button>
       <el-button v-if="!isEdit" :icon="Refresh" :loading="savingContinue" @click="handleSaveAndContinue">
-        保存并继续
+        {{ $t('vulnForm.saveContinue') }}
       </el-button>
       <el-button type="primary" :icon="Edit" :loading="saving" @click="handleSave">
-        {{ isEdit ? '保存' : '创建' }}
+        {{ isEdit ? $t('common.action.save') : $t('common.action.create') }}
       </el-button>
     </div>
   </div>
@@ -160,6 +160,7 @@
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Back, Delete, Edit, Plus, Refresh } from '@element-plus/icons-vue'
 import { createVuln, getVuln, updateVuln } from '@/api/vuln'
@@ -169,11 +170,12 @@ import type { VulnUpdatePayload } from '@/types/vuln'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const isEdit = computed(() => !!route.params.id)
 const vulnId = computed(() => Number(route.params.id))
 const headerDesc = computed(() =>
-  isEdit.value ? form.cve_id : '登记新的 CVE 漏洞信息，含编号、厂商、CVSS 与受影响产品等'
+  isEdit.value ? form.cve_id : t('vulnForm.headerDescNew')
 )
 
 const loading = ref(isEdit.value)
@@ -214,10 +216,10 @@ const rules = computed<FormRules>(() => ({
   cve_id: isEdit.value
     ? []
     : [
-        { required: true, message: '请输入 CVE 编号', trigger: 'blur' },
-        { pattern: /^CVE-\d{4}-\d{4,}$/, message: '格式应为 CVE-YYYY-NNNNN', trigger: 'blur' },
+        { required: true, message: t('vulnForm.rules.cveIdRequired'), trigger: 'blur' },
+        { pattern: /^CVE-\d{4}-\d{4,}$/, message: t('vulnForm.rules.cveIdPattern'), trigger: 'blur' },
       ],
-  cvss: [{ type: 'number', min: 0, max: 10, message: 'CVSS 评分范围 0–10', trigger: 'blur' }],
+  cvss: [{ type: 'number', min: 0, max: 10, message: t('vulnForm.rules.cvssRange'), trigger: 'blur' }],
 }))
 
 // 行稳定 key 生成（用于 v-for，避免增删时输入错位）
@@ -363,11 +365,11 @@ async function handleSave() {
     const payload = buildEditablePayload()
     if (isEdit.value) {
       await updateVuln(vulnId.value, payload)
-      ElMessage.success('保存成功')
+      ElMessage.success(t('vulnForm.messages.saveSuccess'))
       router.push(`/vulns/${vulnId.value}`)
     } else {
       const created = await createVuln({ cve_id: form.cve_id.trim(), ...payload })
-      ElMessage.success('创建成功')
+      ElMessage.success(t('vulnForm.messages.createSuccess'))
       router.push(`/vulns/${created.id}`)
     }
   } finally {
@@ -386,7 +388,7 @@ async function handleSaveAndContinue() {
   savingContinue.value = true
   try {
     const created = await createVuln({ cve_id: form.cve_id.trim(), ...buildEditablePayload() })
-    ElMessage.success(`已创建 ${created.cve_id}，可继续录入`)
+    ElMessage.success(t('vulnForm.messages.createdContinue', { cve: created.cve_id }))
     resetForm()
   } finally {
     savingContinue.value = false

@@ -1,7 +1,7 @@
 <template>
   <div class="profile-view">
     <div class="profile-container">
-      <PageHeader title="个人信息" description="查看和修改个人账号信息" />
+      <PageHeader :title="$t('nav.profile')" :description="$t('profile.headerDesc')" />
 
       <!-- ── 用户头像与概要 ── -->
       <div class="profile-card avatar-card">
@@ -22,11 +22,11 @@
             </span>
             <span v-if="user?.is_active" class="status-tag status--active">
               <el-icon :size="12"><CircleCheck /></el-icon>
-              正常
+              {{ $t('profile.active') }}
             </span>
             <span v-else class="status-tag status--disabled">
               <el-icon :size="12"><RemoveFilled /></el-icon>
-              已停用
+              {{ $t('profile.disabled') }}
             </span>
           </div>
         </div>
@@ -36,7 +36,7 @@
       <div class="profile-card form-card">
         <div class="section-header">
           <el-icon :size="20"><EditPen /></el-icon>
-          <span>编辑资料</span>
+          <span>{{ $t('profile.editProfile') }}</span>
         </div>
 
         <el-form
@@ -50,7 +50,7 @@
           <div class="form-row">
             <div class="form-label">
               <el-icon :size="16"><UserFilled /></el-icon>
-              <span>用户名</span>
+              <span>{{ $t('profile.fields.username') }}</span>
             </div>
             <div class="form-control">
               <el-input :model-value="user?.username" disabled>
@@ -58,7 +58,7 @@
                   <el-icon><UserFilled /></el-icon>
                 </template>
               </el-input>
-              <p class="form-tip">用户名不可修改</p>
+              <p class="form-tip">{{ $t('profile.usernameReadonly') }}</p>
             </div>
           </div>
 
@@ -66,10 +66,10 @@
           <div class="form-row">
             <div class="form-label">
               <el-icon :size="16"><Message /></el-icon>
-              <span>邮箱</span>
+              <span>{{ $t('profile.fields.email') }}</span>
             </div>
             <div class="form-control">
-              <el-input v-model="form.email" placeholder="请输入邮箱地址" clearable>
+              <el-input v-model="form.email" :placeholder="$t('profile.placeholders.email')" clearable>
                 <template #prefix>
                   <el-icon><Message /></el-icon>
                 </template>
@@ -80,7 +80,7 @@
           <!-- 密码修改分隔 -->
           <div class="section-divider">
             <span class="divider-line" />
-            <span class="divider-label">密码修改</span>
+            <span class="divider-label">{{ $t('profile.changePassword') }}</span>
             <span class="divider-line" />
           </div>
 
@@ -88,20 +88,20 @@
           <div class="form-row">
             <div class="form-label">
               <el-icon :size="16"><Lock /></el-icon>
-              <span>新密码</span>
+              <span>{{ $t('profile.fields.newPassword') }}</span>
             </div>
             <div class="form-control">
               <el-input
                 v-model="form.password"
                 type="password"
                 show-password
-                placeholder="留空则不修改密码"
+                :placeholder="$t('profile.placeholders.newPassword')"
               >
                 <template #prefix>
                   <el-icon><Lock /></el-icon>
                 </template>
               </el-input>
-              <p class="form-tip">至少 8 位字符</p>
+              <p class="form-tip">{{ $t('profile.passwordHint') }}</p>
             </div>
           </div>
 
@@ -109,14 +109,14 @@
           <div class="form-row">
             <div class="form-label">
               <el-icon :size="16"><Key /></el-icon>
-              <span>确认密码</span>
+              <span>{{ $t('profile.fields.confirmPassword') }}</span>
             </div>
             <div class="form-control">
               <el-input
                 v-model="form.confirmPassword"
                 type="password"
                 show-password
-                placeholder="再次输入新密码"
+                :placeholder="$t('profile.placeholders.confirmPassword')"
               >
                 <template #prefix>
                   <el-icon><Key /></el-icon>
@@ -135,7 +135,7 @@
               @click="handleSave"
             >
               <el-icon v-if="!saving" :size="16"><Check /></el-icon>
-              {{ saving ? '保存中...' : '保存修改' }}
+              {{ saving ? $t('profile.saving') : $t('profile.saveChanges') }}
             </el-button>
           </div>
         </el-form>
@@ -145,7 +145,7 @@
       <div class="profile-card info-card">
         <div class="section-header">
           <el-icon :size="20"><InfoFilled /></el-icon>
-          <span>账号信息</span>
+          <span>{{ $t('profile.accountInfo') }}</span>
         </div>
 
         <div class="info-grid">
@@ -154,7 +154,7 @@
               <el-icon :size="20"><UserFilled /></el-icon>
             </div>
             <div class="info-body">
-              <span class="info-label">角色</span>
+              <span class="info-label">{{ $t('profile.fields.role') }}</span>
               <span class="info-value">{{ roleLabel }}</span>
             </div>
           </div>
@@ -163,8 +163,8 @@
               <el-icon :size="20"><CircleCheck /></el-icon>
             </div>
             <div class="info-body">
-              <span class="info-label">账号状态</span>
-              <span class="info-value info-value--active">{{ user?.is_active ? '正常' : '已停用' }}</span>
+              <span class="info-label">{{ $t('profile.accountStatus') }}</span>
+              <span class="info-value info-value--active">{{ user?.is_active ? $t('profile.active') : $t('profile.disabled') }}</span>
             </div>
           </div>
           <div class="info-item">
@@ -172,7 +172,7 @@
               <el-icon :size="20"><Clock /></el-icon>
             </div>
             <div class="info-body">
-              <span class="info-label">登录时间</span>
+              <span class="info-label">{{ $t('profile.lastLogin') }}</span>
               <span class="info-value">{{ formatDate(user?.last_login_at) }}</span>
             </div>
           </div>
@@ -181,7 +181,7 @@
               <el-icon :size="20"><Calendar /></el-icon>
             </div>
             <div class="info-body">
-              <span class="info-label">注册时间</span>
+              <span class="info-label">{{ $t('profile.registeredAt') }}</span>
               <span class="info-value">{{ formatDate(user?.created_at) }}</span>
             </div>
           </div>
@@ -193,6 +193,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
   UserFilled,
@@ -212,6 +213,7 @@ import { updateProfile } from '@/api/auth'
 import { formatDate } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 
+const { t } = useI18n()
 const authStore = useAuthStore()
 const formRef = ref()
 const saving = ref(false)
@@ -224,8 +226,9 @@ const userInitial = computed(() => {
 })
 
 const roleLabel = computed(() => {
-  const map: Record<string, string> = { viewer: '查看者', editor: '编辑者', admin: '管理员' }
-  return map[user.value?.role || ''] || user.value?.role || '-'
+  const role = user.value?.role
+  if (!role) return '-'
+  return t('enums.role.' + role)
 })
 
 const form = reactive({
@@ -236,16 +239,16 @@ const form = reactive({
 
 const rules: Record<string, any> = {
   email: [
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+    { type: 'email', message: t('profile.rules.email'), trigger: 'blur' },
   ],
   password: [
-    { min: 8, message: '密码至少 8 位', trigger: 'blur' },
+    { min: 8, message: t('profile.rules.passwordMin'), trigger: 'blur' },
   ],
   confirmPassword: [
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (value && value !== form.password) {
-          callback(new Error('两次输入的密码不一致'))
+          callback(new Error(t('profile.rules.passwordMismatch')))
         } else {
           callback()
         }
@@ -274,12 +277,12 @@ async function handleSave() {
       payload.password = form.password
     }
     if (!Object.keys(payload).length) {
-      ElMessage.info('没有需要修改的内容')
+      ElMessage.info(t('profile.messages.noChanges'))
       return
     }
     const updated = await updateProfile(payload)
     authStore.user = { ...authStore.user!, ...updated }
-    ElMessage.success('个人信息已更新')
+    ElMessage.success(t('profile.messages.updated'))
     form.password = ''
     form.confirmPassword = ''
   } catch {

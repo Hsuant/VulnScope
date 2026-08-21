@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import VChart from 'vue-echarts'
 import '@/utils/echarts'
 import { useChartTheme } from '@/composables/useChartTheme'
@@ -22,6 +23,7 @@ const props = defineProps<{
 }>()
 
 const theme = useChartTheme()
+const { t: tt } = useI18n()
 
 /** 将 YYYY-MM-DD 缩写为 月/日，用于坐标轴与提示框展示。 */
 function shortDate(v: string): string {
@@ -31,6 +33,8 @@ function shortDate(v: string): string {
 
 const option = computed(() => {
   const t = theme.value
+  const pocLabel = tt('dashboard.charts.newPoc')
+  const cveLabel = tt('dashboard.charts.newCve')
   return {
     tooltip: {
       trigger: 'axis',
@@ -54,7 +58,7 @@ const option = computed(() => {
     },
     // 顶部图例：POC / CVE 双系列
     legend: {
-      data: ['新增 POC', '新增 CVE'],
+      data: [pocLabel, cveLabel],
       top: 0,
       right: 0,
       icon: 'circle',
@@ -84,7 +88,7 @@ const option = computed(() => {
     },
     series: [
       {
-        name: '新增 POC',
+        name: pocLabel,
         type: 'line',
         data: props.points.map((p) => p.new_pocs),
         smooth: true,
@@ -97,7 +101,7 @@ const option = computed(() => {
         emphasis: { focus: 'series' },
       },
       {
-        name: '新增 CVE',
+        name: cveLabel,
         type: 'line',
         data: props.points.map((p) => p.new_vulns),
         smooth: true,

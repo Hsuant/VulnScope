@@ -15,24 +15,27 @@
     <template v-if="!isEmpty">
       <!-- 自绘色阶图例：少 → 渐变条 → 多，宽度随面板自适应铺满 -->
       <div class="legend-bar">
-        <span class="legend-end">少</span>
+        <span class="legend-end">{{ $t('dashboard.charts.heatmapLess') }}</span>
         <span class="legend-track" :style="{ background: legendGradient }" />
-        <span class="legend-end">多</span>
+        <span class="legend-end">{{ $t('dashboard.charts.heatmapMore') }}</span>
       </div>
       <div class="chart-canvas">
         <VChart :option="option" autoresize />
       </div>
     </template>
-    <div v-else class="chart-empty">暂无数据</div>
+    <div v-else class="chart-empty">{{ $t('dashboard.charts.noData') }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import VChart from 'vue-echarts'
 import '@/utils/echarts'
 import { useChartTheme, type ChartColorKey, type ChartTheme } from '@/composables/useChartTheme'
 import type { VulnHeatmapData } from '@/types/dashboard'
+
+const { t: tt } = useI18n()
 
 /** 热力图单元格三元组：[x_index, y_index, count]。 */
 type HeatCell = [number, number, number]
@@ -49,14 +52,17 @@ type HeatCell = [number, number, number]
 class HeatmapOptionBuilder {
   private readonly data: VulnHeatmapData
   private readonly t: ChartTheme
+  private readonly tr: (key: string) => string
 
   /**
    * @param data 后端聚合的热力图数据。
    * @param theme 当前已解析的主题色（含文本、背景、严重级别色阶）。
+   * @param tr i18n 翻译函数（用于严重级别、提示文案）。
    */
-  constructor(data: VulnHeatmapData, theme: ChartTheme) {
+  constructor(data: VulnHeatmapData, theme: ChartTheme, tr: (key: string) => string) {
     this.data = data
     this.t = theme
+    this.tr = tr
   }
 
   /** 数据是否为空：无厂商或无非零格子时无可渲染内容。 */
@@ -125,13 +131,38 @@ class HeatmapOptionBuilder {
    * 索引 0=未评分；1..11 对应评分 0..10，按 CVSS v3.x 标准分级。
    */
   private bucketSeverity(yi: number): string {
-    if (yi === 0) return '未评级'
+    if (yi === 0) return this.tr('dashboard.charts.severityUnrated')
     const s = yi - 1
-    if (s === 0) return '无'
-    if (s <= 3) return '低危'
-    if (s <= 6) return '中危'
-    if (s <= 8) return '高危'
-    return '严重'
+    if (s === 0) return this.tr('enums.severity.info')
+    if (s <= 3) return this.tr('enums.severity.low')
+    if (s <= 6) return this.tr('enums.severity.medium')
+    if (s <= 8) return this.tr('enums.severity.high')
+    return this.tr('enums.severity.critical')
+  }
+
+  /**
+   * 纵轴标签数组（已 i18n）：首项「未评分」是后端返回的中文，按索引 0
+   * 映射为 severityUnrated；其余为 CVSS 评分数字，原样保留。
+   * Y 轴与 tooltip 共用此方法，避免「未评分」在英文模式下仍显示中文。
+   */
+  private translatedYLabels(): string[] {
+    return this.data.y_labels.map((label, yi) =>
+      yi === 0 ? this.tr('dashboard.charts.severityUnrated') : label,
+    )
+  }
+
+  /**
+   * 横轴标签数组（已 i18n）：厂商名由后端返回，多为真实值（如 apache）。
+   * 但缺失厂商的 CVE 可能返回空串或字面量「未知」，`??` 不会拦截空串，
+   * 故对空值/「未知」字面量统一替换为 unknownVendor 翻译，确保中英文切换。
+   * X 轴与 tooltip 共用此方法。
+   */
+  private translatedXLabels(): string[] {
+    const fallback = this.tr('dashboard.charts.unknownVendor')
+    return this.data.x_labels.map((label) => {
+      const v = (label || '').trim()
+      return v === '' || v === '未知' || v.toLowerCase() === 'unknown' ? fallback : label
+    })
   }
 
   /** 依据 CVSS 分桶纵轴索引返回对应严重级别主题色。 */
@@ -159,8 +190,8 @@ class HeatmapOptionBuilder {
       // params.value 为 [x_index, y_index, count]
       formatter: (params: { value: HeatCell }): string => {
         const [xi, yi, count] = params.value
-        const vendor = this.data.x_labels[xi] ?? '未知'
-        const bucket = this.data.y_labels[yi] ?? '-'
+        const vendor = this.translatedXLabels()[xi] ?? this.tr('dashboard.charts.unknownVendor')
+        const bucket = this.translatedYLabels()[yi] ?? '-'
         const sev = this.bucketSeverity(yi)
         const sevColor = this.bucketSeverityColor(yi)
         return `
@@ -171,7 +202,7 @@ class HeatmapOptionBuilder {
                 this.severityKey(yi), 0.16,
               )};font-weight:600;font-size:10px">${sev}</span>
           </div>
-          <div style="font-size:11px;margin-top:4px;color:${this.t.textSecondary}">CVE 数
+          <div style="font-size:11px;margin-top:4px;color:${this.t.textSecondary}">${this.tr('dashboard.charts.cveCount')}
             <b style="color:${this.t.textPrimary};font-size:14px;margin-left:4px">${count}</b>
           </div>`
       },
@@ -198,7 +229,7 @@ class HeatmapOptionBuilder {
   private buildXAxis(): Record<string, unknown> {
     return {
       type: 'category',
-      data: this.data.x_labels,
+      data: this.translatedXLabels(),
       axisLine: { lineStyle: { color: this.t.borderSubtle } },
       axisTick: { show: false },
       // 显式关闭纵向网格线与纵向分割区，杜绝竖线伪影。
@@ -226,7 +257,7 @@ class HeatmapOptionBuilder {
   private buildYAxis(): Record<string, unknown> {
     return {
       type: 'category',
-      data: this.data.y_labels,
+      data: this.translatedYLabels(),
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { show: false },
@@ -298,7 +329,7 @@ const props = defineProps<{
 const theme = useChartTheme()
 
 // 由构建器实例化 option；数据或主题变化时自动重算。
-const builder = computed(() => new HeatmapOptionBuilder(props.data, theme.value))
+const builder = computed(() => new HeatmapOptionBuilder(props.data, theme.value, tt))
 const option = computed(() => builder.value.build())
 const isEmpty = computed(() => builder.value.isEmpty)
 

@@ -5,7 +5,7 @@
       <TagNamespaceSelect
         v-model="vendorTagId"
         namespace="Vendor"
-        placeholder="搜索厂商..."
+        :placeholder="$t('tagSelect.vendorPlaceholder')"
         popper-class="tag-select-popper"
         @change="onVendorChange"
         @clear="onVendorClear"
@@ -14,7 +14,7 @@
       <TagNamespaceSelect
         v-model="ossTagId"
         namespace="OSS"
-        placeholder="搜索产品..."
+        :placeholder="$t('tagSelect.ossPlaceholder')"
         popper-class="tag-select-popper"
         @change="onOssChange"
         @clear="onOssClear"

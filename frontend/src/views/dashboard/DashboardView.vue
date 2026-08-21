@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-view">
-    <PageHeader title="工作台" />
+    <PageHeader :title="$t('nav.dashboard')" />
 
     <div v-loading="loading" class="dashboard-content">
       <!-- ── 关键指标 KPI 条 ─────────────────────────────────────── -->
@@ -22,15 +22,15 @@
         <div class="panel panel--trend span-8">
           <div class="panel-head">
             <div>
-              <h3 class="panel-title">POC / CVE 新增趋势</h3>
-              <p class="panel-sub">近 30 天每日新增 · 累计 POC {{ trendSum }} 个</p>
+              <h3 class="panel-title">{{ $t('dashboard.charts.trend') }}</h3>
+              <p class="panel-sub">{{ $t('dashboard.charts.trendSub', { sum: trendSum }) }}</p>
             </div>
           </div>
           <TrendChart :points="trendData" />
         </div>
 
         <div class="panel span-4">
-          <div class="panel-head"><h3 class="panel-title">POC 状态分布</h3></div>
+          <div class="panel-head"><h3 class="panel-title">{{ $t('dashboard.charts.statusDist') }}</h3></div>
           <div class="donut-wrap">
             <DonutChart :items="statusItems" :total="stats.total_pocs" center-label="POC" />
             <div class="legend-col">
@@ -47,21 +47,21 @@
       <!-- ── 严重级别 / 可选命名空间标签分布 / 资产搜集命令分布 ── -->
       <section class="grid">
         <div class="panel span-4">
-          <div class="panel-head"><h3 class="panel-title">严重级别分布</h3></div>
+          <div class="panel-head"><h3 class="panel-title">{{ $t('dashboard.charts.severityDist') }}</h3></div>
           <BarChart :items="severityItems" />
         </div>
 
         <div class="panel span-4">
           <div class="panel-head">
-            <h3 class="panel-title">命名空间标签分布</h3>
-            <span class="panel-meta">共 {{ tagDistRaw.length }} 个标签</span>
+            <h3 class="panel-title">{{ $t('dashboard.charts.tagDist') }}</h3>
+            <span class="panel-meta">{{ $t('dashboard.charts.tagDistMeta', { count: tagDistRaw.length }) }}</span>
           </div>
           <div class="ns-selector-wrap">
             <el-select
               v-model="selectedNamespace"
               :loading="nsLoading"
               size="small"
-              placeholder="选择命名空间"
+              :placeholder="$t('dashboard.charts.namespacePlaceholder')"
               class="ns-selector"
               @change="loadTagDistribution"
             >
@@ -79,7 +79,7 @@
         </div>
 
         <div class="panel span-4">
-          <div class="panel-head"><h3 class="panel-title">资产搜集命令分布</h3></div>
+          <div class="panel-head"><h3 class="panel-title">{{ $t('dashboard.charts.assetSearchDist') }}</h3></div>
           <BarChart :items="assetSearchItems" />
         </div>
       </section>
@@ -88,16 +88,16 @@
       <section class="grid">
         <div class="panel span-8">
           <div class="panel-head">
-            <h3 class="panel-title">厂商 × CVSS 风险矩阵</h3>
-            <span class="panel-meta">色越深 · 该格 CVE 越多</span>
+            <h3 class="panel-title">{{ $t('dashboard.charts.vendorCvssMatrix') }}</h3>
+            <span class="panel-meta">{{ $t('dashboard.charts.vendorCvssMatrixHint') }}</span>
           </div>
           <HeatmapChart :data="heatmapData" />
         </div>
 
         <div class="panel span-4">
           <div class="panel-head">
-            <h3 class="panel-title">高产作者</h3>
-            <span class="panel-meta">{{ stats.total_authors }} 位贡献者</span>
+            <h3 class="panel-title">{{ $t('dashboard.charts.topAuthors') }}</h3>
+            <span class="panel-meta">{{ $t('dashboard.charts.topAuthorsMeta', { count: stats.total_authors }) }}</span>
           </div>
           <div v-if="authorData.length" class="rank-list">
             <div v-for="(item, i) in authorData" :key="item.author" class="rank-row">
@@ -109,25 +109,25 @@
               <span class="rank-count">{{ item.count }}</span>
             </div>
           </div>
-          <div v-else class="chart-empty">暂无作者数据</div>
+          <div v-else class="chart-empty">{{ $t('dashboard.empty.authors') }}</div>
         </div>
       </section>
 
       <!-- ── 最近活动 ─────────────────────────────────────────────── -->
       <section class="grid">
         <div class="panel span-12">
-          <div class="panel-head"><h3 class="panel-title">最近活动</h3></div>
+          <div class="panel-head"><h3 class="panel-title">{{ $t('dashboard.charts.recentActivity') }}</h3></div>
           <div v-if="activityData.length" class="activity-timeline">
             <div v-for="item in activityData" :key="item.timestamp" class="activity-node">
               <span class="activity-dot" :style="{ background: actionColor(item.action) }" />
               <div class="activity-body">
-                <span class="activity-name">{{ item.poc_name || '未知 POC' }}</span>
+                <span class="activity-name">{{ item.poc_name || $t('dashboard.activity.unknownPoc') }}</span>
                 <span class="activity-action">{{ actionLabel(item.action) }}</span>
               </div>
               <span class="activity-time">{{ formatDateTime(item.timestamp) }}</span>
             </div>
           </div>
-          <div v-else class="chart-empty">暂无活动记录</div>
+          <div v-else class="chart-empty">{{ $t('dashboard.empty.activity') }}</div>
         </div>
       </section>
     </div>
@@ -136,6 +136,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getFullDashboard, getTagNamespaceDistribution } from '@/api/dashboard'
 import { listNamespaces } from '@/api/tag'
 import { SEVERITY_MAP, STATUS_MAP, ACTION_MAP } from '@/utils/constants'
@@ -147,6 +148,8 @@ import BarChart, { type BarItem } from '@/components/dashboard/BarChart.vue'
 import HeatmapChart from '@/components/dashboard/HeatmapChart.vue'
 import { cssVar, type ChartColorKey } from '@/composables/useChartTheme'
 import type { DashboardData, VulnHeatmapData } from '@/types/dashboard'
+
+const { t } = useI18n()
 
 const loading = ref(true)
 const data = ref<DashboardData | null>(null)
@@ -219,10 +222,10 @@ const pocsPerAuthor = computed(() =>
 )
 
 const kpiCards = computed(() => [
-  { key: 'pocs', icon: 'Document', label: 'POC 总数', value: stats.value.total_pocs, sub: `近 30 天 +${trendSum.value}` },
-  { key: 'active', icon: 'CircleCheckFilled', label: '活跃 POC', value: stats.value.total_active_pocs, sub: `活跃率 ${activeRate.value}%` },
-  { key: 'vulns', icon: 'WarningFilled', label: 'CVE 漏洞', value: stats.value.total_vulns, sub: `平均 ${vulnsPerPoc.value} / POC` },
-  { key: 'authors', icon: 'UserFilled', label: '贡献者', value: stats.value.total_authors, sub: `人均 ${pocsPerAuthor.value} POC` },
+  { key: 'pocs', icon: 'Document', label: t('dashboard.stats.pocTotal'), value: stats.value.total_pocs, sub: t('dashboard.stats.trend30d', { count: trendSum.value }) },
+  { key: 'active', icon: 'CircleCheckFilled', label: t('dashboard.stats.activePoc'), value: stats.value.total_active_pocs, sub: t('dashboard.stats.activeRate', { rate: activeRate.value }) },
+  { key: 'vulns', icon: 'WarningFilled', label: t('dashboard.stats.cveVulns'), value: stats.value.total_vulns, sub: t('dashboard.stats.avgPerPoc', { avg: vulnsPerPoc.value }) },
+  { key: 'authors', icon: 'UserFilled', label: t('dashboard.stats.contributors'), value: stats.value.total_authors, sub: t('dashboard.stats.perCapita', { count: pocsPerAuthor.value }) },
 ])
 
 // ── 图表数据（含名称与色彩键） ──────────────────────────────────
@@ -232,7 +235,7 @@ const severityItems = computed<BarItem[]>(() => {
   return order
     .map(k => data.value!.severity_distribution.find(d => d.key === k))
     .filter((d): d is NonNullable<typeof d> => !!d)
-    .map(d => ({ name: SEVERITY_MAP[d.key] || d.key, value: d.count, colorKey: SEVERITY_KEY[d.key] || 'accent' }))
+    .map(d => ({ name: t(SEVERITY_MAP[d.key] || d.key), value: d.count, colorKey: SEVERITY_KEY[d.key] || 'accent' }))
 })
 
 const statusItems = computed<DonutItem[]>(() => {
@@ -241,7 +244,7 @@ const statusItems = computed<DonutItem[]>(() => {
   return order
     .map(k => data.value!.status_distribution.find(d => d.key === k))
     .filter((d): d is NonNullable<typeof d> => !!d)
-    .map(d => ({ name: STATUS_MAP[d.key] || d.key, value: d.count, colorKey: STATUS_KEY[d.key] || 'accent' }))
+    .map(d => ({ name: t(STATUS_MAP[d.key] || d.key), value: d.count, colorKey: STATUS_KEY[d.key] || 'accent' }))
 })
 
 // 命名空间标签全量展示（不折叠为"其他"），每项配循环色键。
@@ -276,7 +279,7 @@ function authorPercent(count: number): string {
 }
 
 function actionLabel(action: string): string {
-  return ACTION_MAP[action] || action
+  return t(ACTION_MAP[action] || action)
 }
 
 onMounted(async () => {

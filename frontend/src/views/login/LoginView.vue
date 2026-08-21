@@ -15,13 +15,13 @@
       <div class="login-header">
         <div class="login-logo">
           <svg viewBox="0 0 32 32" fill="none" width="44" height="44">
-            <path d="M16 2L4 8v6c0 6.5 4.5 12.5 12 16 7.5-3.5 12-9.5 12-16V8L16 2z" fill="#4a8cba" opacity="0.9"/>
-            <path d="M16 6l-8 4v4.5c0 4.7 3.2 9 8 11.5 4.8-2.5 8-6.8 8-11.5V10l-8-4z" fill="#0e0e10" stroke="#4a8cba" stroke-width="0.5"/>
-            <path d="M16 10l-4 2v3c0 2.8 1.8 5.3 4 6.5 2.2-1.2 4-3.7 4-6.5v-3l-4-2z" fill="#4a8cba" opacity="0.6"/>
+            <path d="M16 2L4 8v6c0 6.5 4.5 12.5 12 16 7.5-3.5 12-9.5 12-16V8L16 2z" fill="var(--vs-accent)" opacity="0.9"/>
+            <path d="M16 6l-8 4v4.5c0 4.7 3.2 9 8 11.5 4.8-2.5 8-6.8 8-11.5V10l-8-4z" fill="var(--vs-bg-primary)" stroke="var(--vs-accent)" stroke-width="0.5"/>
+            <path d="M16 10l-4 2v3c0 2.8 1.8 5.3 4 6.5 2.2-1.2 4-3.7 4-6.5v-3l-4-2z" fill="var(--vs-accent)" opacity="0.6"/>
           </svg>
         </div>
         <h1 class="login-title">VulnScope</h1>
-        <p class="login-subtitle">POC 漏洞验证脚本管理系统</p>
+        <p class="login-subtitle">{{ $t('login.subtitle') }}</p>
       </div>
 
       <el-form
@@ -34,7 +34,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="form.username"
-            placeholder="用户名"
+            :placeholder="$t('login.usernamePlaceholder')"
             :prefix-icon="User"
             size="large"
           />
@@ -44,7 +44,7 @@
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="密码"
+            :placeholder="$t('login.passwordPlaceholder')"
             :prefix-icon="Lock"
             size="large"
             show-password
@@ -59,12 +59,12 @@
             :loading="loading"
             @click="handleLogin"
           >
-            登录
+            {{ $t('login.login') }}
           </el-button>
         </el-form-item>
       </el-form>
 
-      <p class="login-hint">默认管理员账号: admin / admin123</p>
+      <p class="login-hint">{{ $t('login.defaultHint') }}</p>
     </div>
   </div>
 </template>
@@ -72,12 +72,14 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 const formRef = ref()
@@ -89,8 +91,8 @@ const form = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  username: [{ required: true, message: t('login.messages.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.messages.passwordRequired'), trigger: 'blur' }],
 }
 
 function randomDotStyle(i: number) {
@@ -118,7 +120,7 @@ async function handleLogin() {
     await authStore.login(form.username, form.password)
     const redirect = (route.query.redirect as string) || '/dashboard'
     router.push(redirect)
-    ElMessage.success('登录成功')
+    ElMessage.success(t('login.messages.success'))
   } catch (err: any) {
     // 错误由拦截器统一处理
   } finally {

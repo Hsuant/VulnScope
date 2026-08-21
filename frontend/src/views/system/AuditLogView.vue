@@ -1,40 +1,40 @@
 <template>
   <div class="audit-log-view">
-    <PageHeader title="审计日志" description="所有写操作的全量审计记录" />
+    <PageHeader :title="$t('nav.auditLog')" :description="$t('auditLog.headerDesc')" />
 
     <div class="filter-bar">
-      <el-select v-model="action" placeholder="操作类型" clearable class="filter-select">
-        <el-option v-for="(label, key) in ACTION_MAP" :key="key" :label="label" :value="key" />
+      <el-select v-model="action" :placeholder="$t('auditLog.filters.action')" clearable class="filter-select">
+        <el-option v-for="(label, key) in ACTION_MAP" :key="key" :label="$t(label)" :value="key" />
       </el-select>
-      <el-select v-model="resourceType" placeholder="资源类型" clearable class="filter-select">
+      <el-select v-model="resourceType" :placeholder="$t('auditLog.filters.resourceType')" clearable class="filter-select">
         <el-option label="POC" value="poc" />
-        <el-option label="用户" value="user" />
-        <el-option label="标签" value="tag" />
+        <el-option :label="$t('auditLog.resourceUser')" value="user" />
+        <el-option :label="$t('auditLog.resourceTag')" value="tag" />
       </el-select>
-      <el-input v-model="userId" placeholder="用户 ID" class="filter-input" />
-      <el-button :icon="Search" type="primary" @click="search">筛选</el-button>
+      <el-input v-model="userId" :placeholder="$t('auditLog.filters.userId')" class="filter-input" />
+      <el-button :icon="Search" type="primary" @click="search">{{ $t('common.action.filter') }}</el-button>
     </div>
 
     <el-table :data="items" v-loading="loading" stripe class="audit-table" height="calc(100vh - 320px)" @row-click="expandDetail">
-      <el-table-column label="时间" width="160">
+      <el-table-column :label="$t('auditLog.columns.time')" width="160" align="center">
         <template #default="{ row }">
           <span class="cell-time">{{ formatDate(row.created_at) }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="username" label="用户" width="100" />
-      <el-table-column label="操作" width="120">
+      <el-table-column prop="username" :label="$t('auditLog.columns.user')" width="100" align="center" />
+      <el-table-column :label="$t('auditLog.columns.action')" width="120" align="center">
         <template #default="{ row }">
-          <span class="action-text">{{ ACTION_MAP[row.action] || row.action }}</span>
+          <span class="action-text">{{ ACTION_MAP[row.action] ? $t(ACTION_MAP[row.action]) : row.action }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="resource_type" label="资源" width="72" />
-      <el-table-column prop="resource_id" label="资源 ID" width="80" />
-      <el-table-column label="IP" width="120">
+      <el-table-column prop="resource_type" :label="$t('auditLog.columns.resource')" width="96" align="center" />
+      <el-table-column prop="resource_id" :label="$t('auditLog.columns.resourceId')" width="110" align="center" />
+      <el-table-column label="IP" width="120" align="center">
         <template #default="{ row }">
           <span class="cell-text">{{ row.ip || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="详情" min-width="200">
+      <el-table-column :label="$t('auditLog.columns.detail')" min-width="200" align="center">
         <template #default="{ row }">
           <span v-if="row.detail" class="detail-summary" @click.stop="showDetail(row)">
             {{ detailSummary(row.detail) }}
@@ -57,10 +57,10 @@
     </div>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="审计详情" width="600">
+    <el-dialog v-model="detailVisible" :title="$t('auditLog.detailTitle')" width="600">
       <pre class="detail-json">{{ JSON.stringify(selectedDetail, null, 2) }}</pre>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button @click="detailVisible = false">{{ $t('common.action.close') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -68,12 +68,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Search } from '@element-plus/icons-vue'
 import { listAuditLogs } from '@/api/audit'
 import { formatDate } from '@/utils/format'
 import { ACTION_MAP } from '@/utils/constants'
+import { useQuerySync } from '@/composables/useQuerySync'
 import PageHeader from '@/components/common/PageHeader.vue'
 import type { AuditLogItem } from '@/types/audit'
+
+const { t } = useI18n()
 
 const items = ref<AuditLogItem[]>([])
 const loading = ref(true)
@@ -85,6 +89,20 @@ const resourceType = ref('')
 const userId = ref('')
 const detailVisible = ref(false)
 const selectedDetail = ref<any>(null)
+
+// ── 筛选 / 分页 ↔ URL query 同步（刷新页面保留状态，支持前进/后退） ──
+const querySync = useQuerySync(
+  {
+    page: { type: 'number', default: 1 },
+    pageSize: { type: 'number', default: 20 },
+    action: { type: 'string', default: '' },
+    resource_type: { type: 'string', default: '' },
+    user_id: { type: 'string', default: '' },
+  },
+  { page, pageSize, action, resource_type: resourceType, user_id: userId },
+  loadData,
+)
+querySync.init()
 
 async function loadData() {
   loading.value = true
@@ -114,8 +132,8 @@ function detailSummary(detail: any): string {
   if (!detail) return '-'
   const parts: string[] = []
   if (detail.filename) parts.push(detail.filename)
-  if (detail.before) parts.push(`before: ${Object.keys(detail.before).join(',')}`)
-  if (detail.after) parts.push(`after: ${Object.keys(detail.after).join(',')}`)
+  if (detail.before) parts.push(`${t('auditLog.before')}: ${Object.keys(detail.before).join(',')}`)
+  if (detail.after) parts.push(`${t('auditLog.after')}: ${Object.keys(detail.after).join(',')}`)
   if (detail.poc_name) parts.push(detail.poc_name)
   return parts.join(' | ') || JSON.stringify(detail).slice(0, 80)
 }

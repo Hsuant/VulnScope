@@ -1,53 +1,53 @@
 <template>
   <div class="user-manage-view">
-    <PageHeader title="用户管理">
+    <PageHeader :title="$t('nav.userManage')">
       <template #actions>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建用户</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">{{ $t('userManage.createUser') }}</el-button>
       </template>
     </PageHeader>
 
     <el-table :data="items" v-loading="loading" stripe class="user-table" height="calc(100vh - 280px)">
       <el-table-column prop="id" label="ID" width="64" />
-      <el-table-column prop="username" label="用户名" width="140">
+      <el-table-column prop="username" :label="$t('userManage.columns.username')" width="140">
         <template #default="{ row }">
           <span class="user-name">{{ row.username }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="email" label="邮箱" min-width="200">
+      <el-table-column prop="email" :label="$t('userManage.columns.email')" min-width="200">
         <template #default="{ row }">
           <span class="cell-text">{{ row.email || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="角色" width="100" align="center">
+      <el-table-column :label="$t('userManage.columns.role')" width="100" align="center">
         <template #default="{ row }">
           <span class="role-badge" :class="row.role">{{ roleLabel(row.role) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="92" align="center">
+      <el-table-column :label="$t('common.columns.status')" width="92" align="center">
         <template #default="{ row }">
           <StatusBadge :status="row.is_active ? 'active' : 'disabled'" />
         </template>
       </el-table-column>
-      <el-table-column label="最后登录" width="160">
+      <el-table-column :label="$t('userManage.columns.lastLogin')" width="160">
         <template #default="{ row }">
           <span class="cell-time">{{ formatDate(row.last_login_at) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" width="160">
+      <el-table-column :label="$t('userManage.columns.createdAt')" width="160">
         <template #default="{ row }">
           <span class="cell-time">{{ formatDate(row.created_at) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column :label="$t('common.columns.actions')" width="120" fixed="right">
         <template #default="{ row }">
-          <el-button text size="small" @click="openEditDialog(row)">编辑</el-button>
+          <el-button text size="small" @click="openEditDialog(row)">{{ $t('common.action.edit') }}</el-button>
           <el-button
             v-if="row.username !== 'admin'"
             text size="small"
             type="danger"
             @click="handleDelete(row)"
           >
-            删除
+            {{ $t('common.action.delete') }}
           </el-button>
         </template>
       </el-table-column>
@@ -66,31 +66,31 @@
     </div>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEditing ? '编辑用户' : '新建用户'" width="420">
+    <el-dialog v-model="dialogVisible" :title="isEditing ? $t('userManage.editUser') : $t('userManage.createUser')" width="420">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" :disabled="isEditing" placeholder="3-64 字符，字母数字下划线" />
+        <el-form-item :label="$t('userManage.fields.username')" prop="username">
+          <el-input v-model="form.username" :disabled="isEditing" :placeholder="$t('userManage.placeholders.username')" />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="form.email" placeholder="可选" />
+        <el-form-item :label="$t('userManage.fields.email')" prop="email">
+          <el-input v-model="form.email" :placeholder="$t('userManage.placeholders.emailOptional')" />
         </el-form-item>
-        <el-form-item label="密码" :prop="isEditing ? undefined : 'password'">
-          <el-input v-model="form.password" type="password" show-password :placeholder="isEditing ? '留空则不修改' : '至少 8 位'" />
+        <el-form-item :label="$t('userManage.fields.password')" :prop="isEditing ? undefined : 'password'">
+          <el-input v-model="form.password" type="password" show-password :placeholder="isEditing ? $t('userManage.placeholders.passwordEdit') : $t('userManage.placeholders.passwordNew')" />
         </el-form-item>
-        <el-form-item label="角色" prop="role">
+        <el-form-item :label="$t('userManage.fields.role')" prop="role">
           <el-select v-model="form.role" class="w-full">
-            <el-option label="查看者" value="viewer" />
-            <el-option label="编辑者" value="editor" />
-            <el-option label="管理员" value="admin" />
+            <el-option :label="$t('enums.role.viewer')" value="viewer" />
+            <el-option :label="$t('enums.role.editor')" value="editor" />
+            <el-option :label="$t('enums.role.admin')" value="admin" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="isEditing" label="启用" prop="is_active">
+        <el-form-item v-if="isEditing" :label="$t('userManage.fields.active')" prop="is_active">
           <el-switch v-model="form.is_active" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.action.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ $t('common.action.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -98,12 +98,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { listUsers, createUser, updateUser, deleteUser } from '@/api/user'
 import { formatDate } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
+
+const { t } = useI18n()
 
 interface UserRow {
   id: number
@@ -136,18 +139,17 @@ const form = reactive({
 
 const rules: Record<string, any> = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9_.-]{3,64}$/, message: '3-64 字符，仅允许字母数字下划线连字符', trigger: 'blur' },
+    { required: true, message: t('userManage.rules.usernameRequired'), trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_.-]{3,64}$/, message: t('userManage.rules.usernamePattern'), trigger: 'blur' },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, message: '密码至少 8 位', trigger: 'blur' },
+    { required: true, message: t('userManage.rules.passwordRequired'), trigger: 'blur' },
+    { min: 8, message: t('userManage.rules.passwordMin'), trigger: 'blur' },
   ],
 }
 
 function roleLabel(role: string): string {
-  const map: Record<string, string> = { viewer: '查看者', editor: '编辑者', admin: '管理员' }
-  return map[role] || role
+  return t('enums.role.' + role)
 }
 
 async function loadData() {
@@ -199,7 +201,7 @@ async function handleSave() {
         role: form.role,
         is_active: form.is_active,
       })
-      ElMessage.success('用户更新成功')
+      ElMessage.success(t('userManage.messages.updateSuccess'))
     } else {
       await createUser({
         username: form.username,
@@ -207,7 +209,7 @@ async function handleSave() {
         password: form.password,
         role: form.role,
       })
-      ElMessage.success('用户创建成功')
+      ElMessage.success(t('userManage.messages.createSuccess'))
     }
     dialogVisible.value = false
     loadData()
@@ -221,7 +223,7 @@ async function handleSave() {
 async function handleDelete(row: UserRow) {
   try {
     await deleteUser(row.id)
-    ElMessage.success('用户已删除')
+    ElMessage.success(t('userManage.messages.deleteSuccess'))
     loadData()
   } catch {
     // handled by interceptor

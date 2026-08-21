@@ -1,7 +1,7 @@
 <template>
   <div class="chart-box">
     <VChart v-if="items.length" :option="option" autoresize />
-    <div v-else class="chart-empty">暂无数据</div>
+    <div v-else class="chart-empty">{{ $t('dashboard.charts.noData') }}</div>
   </div>
 </template>
 

@@ -6,11 +6,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { SEVERITY_MAP } from '@/utils/constants'
 
 const props = defineProps<{ severity: string }>()
+const { t } = useI18n()
 
-const label = computed(() => SEVERITY_MAP[props.severity] || props.severity)
+const label = computed(() => t(SEVERITY_MAP[props.severity] || props.severity))
 </script>
 
 <style scoped lang="scss">

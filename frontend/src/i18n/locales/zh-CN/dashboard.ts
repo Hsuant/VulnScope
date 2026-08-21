@@ -1,0 +1,43 @@
+// 分析仪表盘文案
+export default {
+  charts: {
+    trend: 'POC / CVE 新增趋势',
+    trendSub: '近 30 天每日新增 · 累计 POC {sum} 个',
+    statusDist: 'POC 状态分布',
+    severityDist: '严重级别分布',
+    tagDist: '命名空间标签分布',
+    tagDistMeta: '共 {count} 个标签',
+    namespacePlaceholder: '选择命名空间',
+    assetSearchDist: '资产搜集命令分布',
+    vendorCvssMatrix: '厂商 × CVSS 风险矩阵',
+    vendorCvssMatrixHint: '色越深 · 该格 CVE 越多',
+    topAuthors: '高产作者',
+    topAuthorsMeta: '{count} 位贡献者',
+    recentActivity: '最近活动',
+    newPoc: '新增 POC',
+    newCve: '新增 CVE',
+    noData: '暂无数据',
+    severityUnrated: '未评级',
+    heatmapLess: '少',
+    heatmapMore: '多',
+    unknownVendor: '未知',
+    cveCount: 'CVE 数',
+  },
+  stats: {
+    pocTotal: 'POC 总数',
+    activePoc: '活跃 POC',
+    cveVulns: 'CVE 漏洞',
+    contributors: '贡献者',
+    trend30d: '近 30 天 +{count}',
+    activeRate: '活跃率 {rate}%',
+    avgPerPoc: '平均 {avg} / POC',
+    perCapita: '人均 {count} POC',
+  },
+  empty: {
+    authors: '暂无作者数据',
+    activity: '暂无活动记录',
+  },
+  activity: {
+    unknownPoc: '未知 POC',
+  },
+}

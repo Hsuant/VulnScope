@@ -8,19 +8,22 @@
   >
     <p class="confirm-message">{{ message }}</p>
     <template #footer>
-      <el-button @click="$emit('update:visible', false)">取消</el-button>
+      <el-button @click="$emit('update:visible', false)">{{ $t('common.action.cancel') }}</el-button>
       <el-button
         :type="type === 'danger' ? 'danger' : 'primary'"
         :loading="loading"
         @click="$emit('confirm')"
       >
-        {{ confirmText || '确认' }}
+        {{ confirmText || $t('common.title.confirm') }}
       </el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+useI18n()
+
 defineProps<{
   visible: boolean
   title: string

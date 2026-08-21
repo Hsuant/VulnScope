@@ -3,9 +3,9 @@
     <div class="logo">
       <div class="logo-icon">
         <svg viewBox="0 0 32 32" fill="none">
-          <path d="M16 2L4 8v6c0 6.5 4.5 12.5 12 16 7.5-3.5 12-9.5 12-16V8L16 2z" fill="#4a8cba" opacity="0.9"/>
-          <path d="M16 6l-8 4v4.5c0 4.7 3.2 9 8 11.5 4.8-2.5 8-6.8 8-11.5V10l-8-4z" fill="var(--vs-bg-primary)" stroke="#4a8cba" stroke-width="0.5"/>
-          <path d="M16 10l-4 2v3c0 2.8 1.8 5.3 4 6.5 2.2-1.2 4-3.7 4-6.5v-3l-4-2z" fill="#4a8cba" opacity="0.6"/>
+          <path d="M16 2L4 8v6c0 6.5 4.5 12.5 12 16 7.5-3.5 12-9.5 12-16V8L16 2z" fill="var(--vs-accent)" opacity="0.9"/>
+          <path d="M16 6l-8 4v4.5c0 4.7 3.2 9 8 11.5 4.8-2.5 8-6.8 8-11.5V10l-8-4z" fill="var(--vs-bg-primary)" stroke="var(--vs-accent)" stroke-width="0.5"/>
+          <path d="M16 10l-4 2v3c0 2.8 1.8 5.3 4 6.5 2.2-1.2 4-3.7 4-6.5v-3l-4-2z" fill="var(--vs-accent)" opacity="0.6"/>
         </svg>
       </div>
       <span v-show="!collapsed" class="logo-text">VulnScope</span>
@@ -20,46 +20,46 @@
     >
       <el-menu-item index="/dashboard">
         <el-icon><Grid /></el-icon>
-        <template #title>工作台</template>
+        <template #title>{{ $t('nav.dashboard') }}</template>
       </el-menu-item>
 
       <el-sub-menu index="/pocs">
         <template #title>
           <el-icon><Document /></el-icon>
-          <span>POC 管理</span>
+          <span>{{ $t('nav.pocManage') }}</span>
         </template>
-        <el-menu-item index="/pocs">POC 列表</el-menu-item>
-        <el-menu-item v-if="canEdit" index="/pocs/new">新建 POC</el-menu-item>
-        <el-menu-item v-if="canEdit" index="/pocs/import">导入 POC</el-menu-item>
+        <el-menu-item index="/pocs">{{ $t('nav.pocList') }}</el-menu-item>
+        <el-menu-item v-if="canEdit" index="/pocs/new">{{ $t('nav.pocCreate') }}</el-menu-item>
+        <el-menu-item v-if="canEdit" index="/pocs/import">{{ $t('nav.pocImport') }}</el-menu-item>
       </el-sub-menu>
 
       <el-sub-menu index="/vulns">
         <template #title>
           <el-icon><Warning /></el-icon>
-          <span>CVE 漏洞库</span>
+          <span>{{ $t('nav.vulnManage') }}</span>
         </template>
-        <el-menu-item index="/vulns">CVE 列表</el-menu-item>
-        <el-menu-item v-if="canEdit" index="/vulns/new">新建 CVE</el-menu-item>
-        <el-menu-item v-if="canEdit" index="/vulns/import">导入 CVE</el-menu-item>
+        <el-menu-item index="/vulns">{{ $t('nav.vulnList') }}</el-menu-item>
+        <el-menu-item v-if="canEdit" index="/vulns/new">{{ $t('nav.vulnCreate') }}</el-menu-item>
+        <el-menu-item v-if="canEdit" index="/vulns/import">{{ $t('nav.vulnImport') }}</el-menu-item>
       </el-sub-menu>
 
       <el-menu-item index="/tags">
         <el-icon><Collection /></el-icon>
-        <template #title>标签管理</template>
+        <template #title>{{ $t('nav.tagManage') }}</template>
       </el-menu-item>
 
       <el-menu-item index="/plugins">
         <el-icon><Box /></el-icon>
-        <template #title>插件面板</template>
+        <template #title>{{ $t('nav.pluginPanel') }}</template>
       </el-menu-item>
 
       <el-sub-menu v-if="isAdmin" index="/system">
         <template #title>
           <el-icon><Tools /></el-icon>
-          <span>系统管理</span>
+          <span>{{ $t('nav.systemManage') }}</span>
         </template>
-        <el-menu-item index="/system/users">用户管理</el-menu-item>
-        <el-menu-item index="/system/audit-logs">审计日志</el-menu-item>
+        <el-menu-item index="/system/users">{{ $t('nav.userManage') }}</el-menu-item>
+        <el-menu-item index="/system/audit-logs">{{ $t('nav.auditLog') }}</el-menu-item>
       </el-sub-menu>
     </el-menu>
   </div>

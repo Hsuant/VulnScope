@@ -1,6 +1,6 @@
 <template>
   <div class="plugin-list-view">
-    <PageHeader title="插件面板" description="已注册的插件列表及运行状态" />
+    <PageHeader :title="$t('nav.pluginPanel')" :description="$t('plugin.headerDesc')" />
 
     <div v-loading="loading" class="plugin-content">
       <div v-for="group in pluginGroups" :key="group.slot" class="plugin-group">
@@ -13,12 +13,12 @@
             </div>
             <span class="plugin-status" :class="{ enabled: plug.enabled }">
               <span class="status-dot" />
-              {{ plug.enabled ? '已启用' : '已禁用' }}
+              {{ plug.enabled ? $t('plugin.enabled') : $t('plugin.disabled') }}
             </span>
           </div>
         </div>
         <div v-else class="empty-slot">
-          <span class="empty-text">暂无注册插件</span>
+          <span class="empty-text">{{ $t('plugin.empty') }}</span>
         </div>
       </div>
     </div>
@@ -27,9 +27,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listPlugins } from '@/api/plugin'
 import PageHeader from '@/components/common/PageHeader.vue'
 import type { PluginItem } from '@/types/plugin'
+
+const { t } = useI18n()
 
 const loading = ref(true)
 const plugins = ref<PluginItem[]>([])
@@ -43,16 +46,8 @@ const pluginGroups = computed(() => {
   return Array.from(map.entries()).map(([slot, items]) => ({ slot, plugins: items }))
 })
 
-const slotLabels: Record<string, string> = {
-  parser: 'Parser 解析器',
-  source: 'Source 来源',
-  verifier: 'Verifier 验证引擎',
-  exporter: 'Exporter 导出器',
-  consumer: 'EventConsumer 事件消费者',
-}
-
 function groupLabel(slot: string): string {
-  return slotLabels[slot] || slot
+  return t('plugin.slots.' + slot)
 }
 
 async function loadData() {

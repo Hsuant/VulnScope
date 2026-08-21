@@ -1,55 +1,49 @@
+// 枚举常量：值清单保持不变，展示标签一律改为 i18n key（对应 i18n/locales/*/enums.ts），
+// 由组件在渲染时通过 t($t) 翻译，随语言切换即时更新。
+
 export const SEVERITY_MAP: Record<string, string> = {
-  info: '信息',
-  low: '低危',
-  medium: '中危',
-  high: '高危',
-  critical: '严重',
+  info: 'enums.severity.info',
+  low: 'enums.severity.low',
+  medium: 'enums.severity.medium',
+  high: 'enums.severity.high',
+  critical: 'enums.severity.critical',
 }
 
 export const STATUS_MAP: Record<string, string> = {
-  draft: '草稿',
-  active: '已启用',
-  disabled: '已禁用',
-  archived: '已归档',
+  draft: 'enums.status.draft',
+  active: 'enums.status.active',
+  disabled: 'enums.status.disabled',
+  archived: 'enums.status.archived',
 }
 
 export const SOURCE_MAP: Record<string, string> = {
-  manual: '手动录入',
-  imported: '导入',
-  ai: 'AI 生成',
-  crawler: '爬取',
+  manual: 'enums.source.manual',
+  imported: 'enums.source.imported',
+  ai: 'enums.source.ai',
+  crawler: 'enums.source.crawler',
 }
 
 export const FORMAT_MAP: Record<string, string> = {
-  'nuclei': 'Nuclei',
-  json: 'JSON',
-  pocsuite3: 'Pocsuite3',
-  'raw-script': 'Script',
-  markdown: 'Markdown',
+  'nuclei': 'enums.format.nuclei',
+  json: 'enums.format.json',
+  pocsuite3: 'enums.format.pocsuite3',
+  'raw-script': 'enums.format.raw-script',
+  markdown: 'enums.format.markdown',
 }
 
 export const ACTION_MAP: Record<string, string> = {
-  'poc.created': '创建 POC',
-  'poc.updated': '更新 POC',
-  'poc.deleted': '删除 POC',
-  'poc.status_changed': '状态变更',
-  'poc.version_created': '版本快照',
-  'poc.batch_imported': '批量导入',
+  'poc.created': 'enums.action.poc.created',
+  'poc.updated': 'enums.action.poc.updated',
+  'poc.deleted': 'enums.action.poc.deleted',
+  'poc.status_changed': 'enums.action.poc.status_changed',
+  'poc.version_created': 'enums.action.poc.version_created',
+  'poc.batch_imported': 'enums.action.poc.batch_imported',
 }
 
-export const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#c43e3e',
-  high: '#c47a3e',
-  medium: '#c4a63e',
-  low: '#3e7ec4',
-  info: '#6a6a72',
-}
-
-export const STATUS_COLORS: Record<string, string> = {
-  active: '#3ea85e',
-  draft: '#6a6a72',
-  disabled: '#c43e3e',
-  archived: '#7e5ec4',
+export const ROLE_MAP: Record<string, string> = {
+  viewer: 'enums.role.viewer',
+  editor: 'enums.role.editor',
+  admin: 'enums.role.admin',
 }
 
 export const SEVERITY_ORDER: Record<string, number> = {
@@ -57,33 +51,33 @@ export const SEVERITY_ORDER: Record<string, number> = {
 }
 
 export const SEVERITY_OPTIONS = [
-  { value: 'info', label: '信息' },
-  { value: 'low', label: '低危' },
-  { value: 'medium', label: '中危' },
-  { value: 'high', label: '高危' },
-  { value: 'critical', label: '严重' },
+  { value: 'info', label: 'enums.severity.info' },
+  { value: 'low', label: 'enums.severity.low' },
+  { value: 'medium', label: 'enums.severity.medium' },
+  { value: 'high', label: 'enums.severity.high' },
+  { value: 'critical', label: 'enums.severity.critical' },
 ]
 
 export const STATUS_OPTIONS = [
-  { value: 'draft', label: '草稿' },
-  { value: 'active', label: '已启用' },
-  { value: 'disabled', label: '已禁用' },
-  { value: 'archived', label: '已归档' },
+  { value: 'draft', label: 'enums.status.draft' },
+  { value: 'active', label: 'enums.status.active' },
+  { value: 'disabled', label: 'enums.status.disabled' },
+  { value: 'archived', label: 'enums.status.archived' },
 ]
 
 export const SOURCE_OPTIONS = [
-  { value: 'manual', label: '手动录入' },
-  { value: 'imported', label: '导入' },
-  { value: 'ai', label: 'AI 生成' },
-  { value: 'crawler', label: '爬取' },
+  { value: 'manual', label: 'enums.source.manual' },
+  { value: 'imported', label: 'enums.source.imported' },
+  { value: 'ai', label: 'enums.source.ai' },
+  { value: 'crawler', label: 'enums.source.crawler' },
 ]
 
 export const FORMAT_OPTIONS = [
-  { value: 'nuclei', label: 'Nuclei' },
-  { value: 'pocsuite3', label: 'Pocsuite3' },
-  { value: 'json', label: 'JSON' },
-  { value: 'raw-script', label: 'Script' },
-  { value: 'markdown', label: 'Markdown' },
+  { value: 'nuclei', label: 'enums.format.nuclei' },
+  { value: 'pocsuite3', label: 'enums.format.pocsuite3' },
+  { value: 'json', label: 'enums.format.json' },
+  { value: 'raw-script', label: 'enums.format.raw-script' },
+  { value: 'markdown', label: 'enums.format.markdown' },
 ]
 
 export const STATUS_TRANSITIONS: Record<string, string[]> = {

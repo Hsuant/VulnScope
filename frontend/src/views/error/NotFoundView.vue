@@ -1,10 +1,10 @@
 <template>
   <div class="error-page">
     <div class="error-content">
-      <h1 class="error-code">404</h1>
-      <h2 class="error-title">页面不存在</h2>
-      <p class="error-desc">您访问的页面不存在或已被移除</p>
-      <el-button type="primary" @click="$router.push('/dashboard')">返回工作台</el-button>
+      <h1 class="error-code">{{ $t('errors.notFound.title') }}</h1>
+      <h2 class="error-title">{{ $t('errors.notFound.subtitle') }}</h2>
+      <p class="error-desc">{{ $t('errors.notFound.description') }}</p>
+      <el-button type="primary" @click="$router.push('/dashboard')">{{ $t('errors.notFound.backHome') }}</el-button>
     </div>
   </div>
 </template>

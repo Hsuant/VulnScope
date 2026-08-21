@@ -1,11 +1,11 @@
 <template>
   <div v-loading="loading" class="vuln-detail-view">
-    <PageHeader :title="vuln?.cve_id || 'CVE 详情'" :description="vuln?.title || undefined">
+    <PageHeader :title="vuln?.cve_id || $t('nav.vulnDetail')" :description="vuln?.title || undefined">
       <template #actions>
-        <el-button :icon="Back" @click="$router.push('/vulns')">返回列表</el-button>
-        <el-button :icon="Link" :loading="pocLoading" @click="goRelatedPoc">关联 POC</el-button>
-        <el-button v-if="canEdit" type="primary" :icon="Edit" @click="goEdit">编辑</el-button>
-        <el-button v-if="canEdit" type="danger" plain :icon="Delete" @click="handleDelete">删除</el-button>
+        <el-button :icon="Back" @click="$router.push('/vulns')">{{ $t('vulnDetail.backToList') }}</el-button>
+        <el-button :icon="Link" :loading="pocLoading" @click="goRelatedPoc">{{ $t('vulnDetail.relatedPoc') }}</el-button>
+        <el-button v-if="canEdit" type="primary" :icon="Edit" @click="goEdit">{{ $t('common.action.edit') }}</el-button>
+        <el-button v-if="canEdit" type="danger" plain :icon="Delete" @click="handleDelete">{{ $t('common.action.delete') }}</el-button>
       </template>
     </PageHeader>
 
@@ -13,10 +13,10 @@
       <!-- 顶部指标条：一眼概览 -->
       <div class="metric-strip">
         <div class="metric severity-metric">
-          <span class="metric-label">严重级别</span>
+          <span class="metric-label">{{ $t('vulnDetail.metrics.severity') }}</span>
           <span class="metric-value">
             <SeverityBadge v-if="vuln.severity" :severity="vuln.severity" />
-            <span v-else class="placeholder">未评定</span>
+            <span v-else class="placeholder">{{ $t('vulnDetail.unrated') }}</span>
           </span>
         </div>
 
@@ -27,7 +27,7 @@
             {{ vuln.cvss != null ? vuln.cvss.toFixed(1) : '—' }}
           </span>
           <div class="cvss-meta">
-            <span class="metric-label">CVSS 评分</span>
+            <span class="metric-label">{{ $t('vulnDetail.metrics.cvss') }}</span>
             <span v-if="cvssVector.version" class="cvss-ver">v{{ cvssVector.version }}</span>
           </div>
         </div>
@@ -35,23 +35,23 @@
         <div class="metric-divider" />
 
         <div class="metric">
-          <span class="metric-label">厂商</span>
+          <span class="metric-label">{{ $t('vulnDetail.metrics.vendor') }}</span>
           <span class="metric-value">{{ vuln.vendor || '—' }}</span>
         </div>
 
         <div class="metric-divider" />
 
         <div class="metric">
-          <span class="metric-label">关联 POC</span>
+          <span class="metric-label">{{ $t('vulnDetail.relatedPoc') }}</span>
           <span class="metric-value">
-            <el-link type="primary" :underline="false" @click="goRelatedPoc">{{ vuln.poc_count }} 个</el-link>
+            <el-link type="primary" :underline="false" @click="goRelatedPoc">{{ $t('vulnDetail.pocCount', { count: vuln.poc_count }) }}</el-link>
           </span>
         </div>
 
         <div class="metric-divider" />
 
         <div class="metric">
-          <span class="metric-label">更新时间</span>
+          <span class="metric-label">{{ $t('common.columns.updatedAt') }}</span>
           <span class="metric-value mono">{{ formatDate(vuln.updated_at) }}</span>
         </div>
       </div>
@@ -60,8 +60,8 @@
         <!-- CVSS 指标向量 -->
         <section v-if="vuln.cvss_metrics" class="detail-section">
           <header class="section-head">
-            <h3 class="section-title"><i class="title-bar" />CVSS 指标向量</h3>
-            <el-button text size="small" :icon="CopyDocument" @click="copyVector">复制向量</el-button>
+            <h3 class="section-title"><i class="title-bar" />{{ $t('vulnDetail.sections.cvssVector') }}</h3>
+            <el-button text size="small" :icon="CopyDocument" @click="copyVector">{{ $t('vulnDetail.copyVector') }}</el-button>
           </header>
           <code class="vector-raw">{{ vuln.cvss_metrics }}</code>
           <div v-if="cvssVector.valid" class="vector-chips">
@@ -82,17 +82,17 @@
         <!-- 漏洞描述 -->
         <section class="detail-section">
           <header class="section-head">
-            <h3 class="section-title"><i class="title-bar" />漏洞描述</h3>
+            <h3 class="section-title"><i class="title-bar" />{{ $t('vulnDetail.sections.description') }}</h3>
           </header>
           <MarkdownRenderer v-if="vuln.description" :content="vuln.description" class="prose" />
-          <p v-else class="no-data">暂无描述</p>
+          <p v-else class="no-data">{{ $t('vulnDetail.noDescription') }}</p>
         </section>
 
         <!-- 受影响产品 -->
         <section class="detail-section">
           <header class="section-head">
-            <h3 class="section-title"><i class="title-bar" />受影响产品</h3>
-            <span v-if="vuln.product?.length" class="section-count">{{ vuln.product.length }} 项</span>
+            <h3 class="section-title"><i class="title-bar" />{{ $t('vulnDetail.sections.products') }}</h3>
+            <span v-if="vuln.product?.length" class="section-count">{{ $t('vulnDetail.itemCount', { count: vuln.product.length }) }}</span>
           </header>
           <el-table
             v-if="vuln.product && vuln.product.length"
@@ -101,43 +101,43 @@
             border
             class="affected-table"
           >
-            <el-table-column prop="vendor" label="厂商" min-width="140">
+            <el-table-column prop="vendor" :label="$t('vulnForm.fields.vendor')" min-width="140">
               <template #default="{ row }">{{ row.vendor || '—' }}</template>
             </el-table-column>
-            <el-table-column prop="product" label="产品" min-width="160">
+            <el-table-column prop="product" :label="$t('vulnForm.fields.product')" min-width="160">
               <template #default="{ row }">{{ row.product || '—' }}</template>
             </el-table-column>
-            <el-table-column label="版本范围" min-width="220">
+            <el-table-column :label="$t('vulnDetail.versionRange')" min-width="220">
               <template #default="{ row }">
                 <code v-if="formatVersionRange(row) !== '—'" class="version-cell">{{ formatVersionRange(row) }}</code>
                 <span v-else class="placeholder">—</span>
               </template>
             </el-table-column>
           </el-table>
-          <p v-else class="no-data">暂无受影响产品记录</p>
+          <p v-else class="no-data">{{ $t('vulnDetail.noProducts') }}</p>
         </section>
 
         <!-- 修复建议 -->
         <section class="detail-section">
           <header class="section-head">
-            <h3 class="section-title"><i class="title-bar" />修复建议</h3>
+            <h3 class="section-title"><i class="title-bar" />{{ $t('vulnDetail.sections.remediation') }}</h3>
           </header>
           <div class="remediation-grid">
             <div class="remediation-card mitigation">
               <div class="remediation-head">
                 <el-icon><Cpu /></el-icon>
-                <span>官方补丁</span>
+                <span>{{ $t('vulnForm.fields.patch') }}</span>
               </div>
               <MarkdownRenderer v-if="vuln.remediation?.mitigation" :content="vuln.remediation.mitigation" class="prose" />
-              <p v-else class="no-data">暂无官方补丁信息</p>
+              <p v-else class="no-data">{{ $t('vulnDetail.noPatch') }}</p>
             </div>
             <div class="remediation-card workaround">
               <div class="remediation-head">
                 <el-icon><Tools /></el-icon>
-                <span>临时方案</span>
+                <span>{{ $t('vulnForm.fields.workaround') }}</span>
               </div>
               <MarkdownRenderer v-if="vuln.remediation?.workaround" :content="vuln.remediation.workaround" class="prose" />
-              <p v-else class="no-data">暂无临时方案</p>
+              <p v-else class="no-data">{{ $t('vulnDetail.noWorkaround') }}</p>
             </div>
           </div>
         </section>
@@ -145,8 +145,8 @@
         <!-- 参考链接 -->
         <section class="detail-section">
           <header class="section-head">
-            <h3 class="section-title"><i class="title-bar" />参考链接</h3>
-            <span v-if="vuln.reference?.length" class="section-count">{{ vuln.reference.length }} 条</span>
+            <h3 class="section-title"><i class="title-bar" />{{ $t('vulnDetail.sections.references') }}</h3>
+            <span v-if="vuln.reference?.length" class="section-count">{{ $t('vulnDetail.refCount', { count: vuln.reference.length }) }}</span>
           </header>
           <div v-if="vuln.reference && vuln.reference.length" class="ref-list">
             <a
@@ -162,14 +162,14 @@
               <span class="ref-host">{{ hostOf(ref.url) }}</span>
             </a>
           </div>
-          <p v-else class="no-data">暂无参考链接</p>
+          <p v-else class="no-data">{{ $t('vulnDetail.noReferences') }}</p>
         </section>
 
         <!-- 关联 POC 清单 -->
         <section class="detail-section">
           <header class="section-head">
-            <h3 class="section-title"><i class="title-bar" />关联 POC</h3>
-            <span v-if="vuln.pocs?.length" class="section-count">{{ vuln.pocs.length }} 个</span>
+            <h3 class="section-title"><i class="title-bar" />{{ $t('vulnDetail.sections.relatedPoc') }}</h3>
+            <span v-if="vuln.pocs?.length" class="section-count">{{ $t('vulnDetail.pocCount', { count: vuln.pocs.length }) }}</span>
           </header>
           <div v-if="vuln.pocs?.length" class="poc-list">
             <div
@@ -188,7 +188,7 @@
               </div>
             </div>
           </div>
-          <p v-else class="no-data">暂无关联 POC</p>
+          <p v-else class="no-data">{{ $t('vulnDetail.noRelatedPoc') }}</p>
         </section>
       </div>
     </div>
@@ -196,8 +196,8 @@
     <!-- 删除确认 -->
     <ConfirmDialog
       v-model:visible="deleteVisible"
-      title="确认删除"
-      :message="`确定要删除 ${vuln?.cve_id ?? ''} 吗？此操作不可恢复。`"
+      :title="$t('common.title.deleteConfirm')"
+      :message="$t('vulnDetail.deleteConfirm', { cve: vuln?.cve_id ?? '' })"
       type="danger"
       @confirm="confirmDelete"
     />
@@ -207,6 +207,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Back, CopyDocument, Cpu, Delete, Edit, Link, Tools } from '@element-plus/icons-vue'
 import { deleteVuln, getVuln } from '@/api/vuln'
@@ -222,6 +223,7 @@ import type { AffectedProduct, PocBrief, VulnItem } from '@/types/vuln'
 const route = useRoute()
 const router = useRouter()
 const { canEdit } = usePermission()
+const { t } = useI18n()
 
 const loading = ref(true)
 const vuln = ref<VulnItem | null>(null)
@@ -247,7 +249,7 @@ async function loadData() {
 function goRelatedPoc() {
   if (!vuln.value) return
   if (!vuln.value.pocs?.length) {
-    ElMessage.info('暂无关联 POC')
+    ElMessage.info(t('vulnDetail.noRelatedPoc'))
     return
   }
   router.push(`/pocs/${vuln.value.pocs[0].id}`)
@@ -269,7 +271,7 @@ async function confirmDelete() {
   if (!vuln.value) return
   try {
     await deleteVuln(vuln.value.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.message.deleteSuccess'))
     router.push('/vulns')
   } catch {
     // 错误已由拦截器统一提示
@@ -280,7 +282,7 @@ async function confirmDelete() {
 async function copyVector() {
   if (!vuln.value?.cvss_metrics) return
   await copyToClipboard(vuln.value.cvss_metrics)
-  ElMessage.success('已复制 CVSS 向量')
+  ElMessage.success(t('vulnDetail.copiedVector'))
 }
 
 /** 将受影响产品条目格式化为版本区间文本。 */

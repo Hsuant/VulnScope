@@ -2,21 +2,21 @@
   <div class="md-editor">
     <!-- 工具栏 -->
     <div class="md-toolbar">
-      <button class="md-btn" title="标题" @click="insertHeading">H</button>
-      <button class="md-btn" title="粗体" @click="wrapBold"><b>B</b></button>
-      <button class="md-btn" title="斜体" @click="wrapItalic"><i>I</i></button>
-      <button class="md-btn" title="删除线" @click="wrapStrike"><s>S</s></button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.heading')" @click="insertHeading">H</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.bold')" @click="wrapBold"><b>B</b></button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.italic')" @click="wrapItalic"><i>I</i></button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.strike')" @click="wrapStrike"><s>S</s></button>
       <span class="md-sep" />
-      <button class="md-btn" title="无序列表" @click="insertList(false)">• 列表</button>
-      <button class="md-btn" title="有序列表" @click="insertList(true)">1. 列表</button>
-      <button class="md-btn" title="引用" @click="insertQuote">❝ 引用</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.unorderedList')" @click="insertList(false)">{{ $t('markdownEditor.toolbar.listBullet') }}</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.orderedList')" @click="insertList(true)">{{ $t('markdownEditor.toolbar.listOrdered') }}</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.quote')" @click="insertQuote">{{ $t('markdownEditor.toolbar.quoteMark') }}</button>
       <span class="md-sep" />
-      <button class="md-btn" title="行内代码" @click="wrapInlineCode">&lt;/&gt;</button>
-      <button class="md-btn" title="代码块" @click="wrapCodeBlock">{ }</button>
-      <button class="md-btn" title="链接" @click="insertLink">🔗</button>
-      <button class="md-btn" title="表格" @click="insertTable">▦</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.inlineCode')" @click="wrapInlineCode">&lt;/&gt;</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.codeBlock')" @click="wrapCodeBlock">{ }</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.link')" @click="insertLink">🔗</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.table')" @click="insertTable">▦</button>
       <span class="md-sep" />
-      <button class="md-btn" title="分割线" @click="insertHr">—</button>
+      <button class="md-btn" :title="$t('markdownEditor.toolbar.hr')" @click="insertHr">—</button>
     </div>
 
     <!-- 编辑 / 预览分栏 -->
@@ -27,12 +27,12 @@
           :value="modelValue"
           class="md-textarea"
           spellcheck="false"
-          placeholder="使用 Markdown 编写漏洞分析 / 报告内容……"
+          :placeholder="$t('markdownEditor.placeholder')"
           @input="onInput"
         />
       </div>
       <div class="md-preview-pane">
-        <div class="md-preview-label">预览</div>
+        <div class="md-preview-label">{{ $t('markdownEditor.preview') }}</div>
         <div class="md-preview-scroll">
           <MarkdownRenderer :content="modelValue" />
         </div>
@@ -43,10 +43,13 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
 defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
+
+const { t } = useI18n()
 
 const taRef = ref<HTMLTextAreaElement>()
 
@@ -89,9 +92,9 @@ function insertLine(prefix: string) {
 }
 
 function insertHeading() { insertLine('### ') }
-function wrapBold() { wrap('**', '粗体') }
-function wrapItalic() { wrap('*', '斜体') }
-function wrapStrike() { wrap('~~', '删除线') }
+function wrapBold() { wrap('**', t('markdownEditor.scriptPlaceholders.bold')) }
+function wrapItalic() { wrap('*', t('markdownEditor.scriptPlaceholders.italic')) }
+function wrapStrike() { wrap('~~', t('markdownEditor.scriptPlaceholders.strike')) }
 function wrapInlineCode() { wrap('`', 'code') }
 function insertList(ordered: boolean) { insertLine(ordered ? '1. ' : '- ') }
 function insertQuote() { insertLine('> ') }
@@ -100,7 +103,7 @@ function wrapCodeBlock() {
   const ta = taRef.value
   if (!ta) return
   const { selectionStart: s, selectionEnd: e, value } = ta
-  const selected = value.slice(s, e) || '代码'
+  const selected = value.slice(s, e) || t('markdownEditor.scriptPlaceholders.code')
   const block = FENCE + 'python' + NL + selected + NL + FENCE + NL
   const next = value.slice(0, s) + block + value.slice(e)
   // 光标定位到语言名，便于改写
@@ -111,7 +114,7 @@ function insertLink() {
   const ta = taRef.value
   if (!ta) return
   const { selectionStart: s, selectionEnd: e, value } = ta
-  const selected = value.slice(s, e) || '链接文本'
+  const selected = value.slice(s, e) || t('markdownEditor.scriptPlaceholders.linkText')
   const block = '[' + selected + '](https://)'
   const next = value.slice(0, s) + block + value.slice(e)
   const urlStart = s + selected.length + 3 // 跳过 `](`

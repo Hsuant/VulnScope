@@ -1,10 +1,10 @@
 <template>
   <div class="cve-import-view">
-    <PageHeader title="导入 CVE" description="支持 JSON、JSONL、YAML、Markdown，单文件限制 10MB，自动判定格式与去重合并">
+    <PageHeader :title="$t('nav.vulnImport')" :description="$t('vulnImport.headerDesc')">
       <template #actions>
-        <el-button :icon="Document" @click="templateDrawer = true">查看模板</el-button>
-        <el-button v-if="result" :icon="Refresh" @click="resetImport">继续导入</el-button>
-        <el-button type="primary" :icon="Warning" @click="$router.push('/vulns')">查看 CVE 列表</el-button>
+        <el-button :icon="Document" @click="templateDrawer = true">{{ $t('vulnImport.viewTemplates') }}</el-button>
+        <el-button v-if="result" :icon="Refresh" @click="resetImport">{{ $t('vulnImport.continueImport') }}</el-button>
+        <el-button type="primary" :icon="Warning" @click="$router.push('/vulns')">{{ $t('vulnImport.viewList') }}</el-button>
       </template>
     </PageHeader>
 
@@ -14,11 +14,11 @@
         <div class="mode-tabs">
           <button class="mode-tab" :class="{ active: mode === 'file' }" @click="mode = 'file'">
             <el-icon :size="18"><UploadFilled /></el-icon>
-            <span>上传文件</span>
+            <span>{{ $t('vulnImport.mode.file') }}</span>
           </button>
           <button class="mode-tab" :class="{ active: mode === 'paste' }" @click="mode = 'paste'">
             <el-icon :size="18"><EditPen /></el-icon>
-            <span>粘贴文本</span>
+            <span>{{ $t('vulnImport.mode.paste') }}</span>
           </button>
         </div>
 
@@ -38,8 +38,8 @@
               <div class="upload-icon-wrap">
                 <el-icon class="upload-icon" :size="48"><UploadFilled /></el-icon>
               </div>
-              <div class="upload-title">拖拽文件到此处</div>
-              <div class="upload-desc">支持批量选择，可一次导入多个 CVE 文件</div>
+              <div class="upload-title">{{ $t('vulnImport.upload.title') }}</div>
+              <div class="upload-desc">{{ $t('vulnImport.upload.desc') }}</div>
               <div class="upload-formats">
                 <span class="format-group"><span class="format-label">JSON</span><span class="format-ext">json</span></span>
                 <span class="format-group"><span class="format-label">JSONL</span><span class="format-ext">jsonl</span></span>
@@ -65,8 +65,8 @@
 
           <div v-if="selectedFiles.length > 1" class="batch-summary">
             <el-icon :size="14"><InfoFilled /></el-icon>
-            <span>已选 {{ selectedFiles.length }} 个文件，将依次导入并汇总结果</span>
-            <el-button text size="small" type="primary" @click="clearFiles">全部清除</el-button>
+            <span>{{ $t('vulnImport.batchSummary', { count: selectedFiles.length }) }}</span>
+            <el-button text size="small" type="primary" @click="clearFiles">{{ $t('vulnImport.clearAll') }}</el-button>
           </div>
         </div>
 
@@ -77,12 +77,12 @@
               v-model="pastedContent"
               type="textarea"
               :rows="12"
-              placeholder="在此粘贴 CVE 内容，支持 JSON / JSONL / YAML / Markdown，系统将自动识别"
+              :placeholder="$t('vulnImport.paste.placeholder')"
               class="paste-textarea"
             />
             <div class="paste-hint">
               <el-icon :size="14"><InfoFilled /></el-icon>
-              <span>JSON 支持单对象或数组；JSONL 每行一个对象；YAML 支持多文档；Markdown 取 front-matter</span>
+              <span>{{ $t('vulnImport.paste.hint') }}</span>
             </div>
           </div>
         </div>
@@ -96,7 +96,7 @@
         >
           <span v-if="importing" class="btn-spinner" />
           <el-icon v-else :size="18"><Upload /></el-icon>
-          <span>{{ importing ? '正在导入...' : '解析并导入' }}</span>
+          <span>{{ importing ? $t('vulnImport.import.running') : $t('vulnImport.import.action') }}</span>
         </button>
       </div>
 
@@ -104,7 +104,7 @@
       <transition name="slide-fade" mode="out-in">
         <div v-if="result" class="result-panel">
           <div class="result-header">
-            <h3 class="result-panel-title">导入结果</h3>
+            <h3 class="result-panel-title">{{ $t('vulnImport.result.title') }}</h3>
           </div>
 
           <div class="result-ring">
@@ -118,7 +118,7 @@
             </svg>
             <div class="ring-center">
               <span class="ring-total">{{ result.total }}</span>
-              <span class="ring-label">总计</span>
+              <span class="ring-label">{{ $t('vulnImport.result.total') }}</span>
             </div>
           </div>
 
@@ -127,28 +127,28 @@
               <div class="breakdown-bar" :style="{ width: barPercent(result.created, result.total) }" />
               <div class="breakdown-info">
                 <span class="breakdown-value">{{ result.created }}</span>
-                <span class="breakdown-label">新建</span>
+                <span class="breakdown-label">{{ $t('vulnImport.result.created') }}</span>
               </div>
             </div>
             <div class="breakdown-item updated">
               <div class="breakdown-bar" :style="{ width: barPercent(result.updated, result.total) }" />
               <div class="breakdown-info">
                 <span class="breakdown-value">{{ result.updated }}</span>
-                <span class="breakdown-label">更新</span>
+                <span class="breakdown-label">{{ $t('vulnImport.result.updated') }}</span>
               </div>
             </div>
             <div class="breakdown-item skipped">
               <div class="breakdown-bar" :style="{ width: barPercent(result.skipped, result.total) }" />
               <div class="breakdown-info">
                 <span class="breakdown-value">{{ result.skipped }}</span>
-                <span class="breakdown-label">跳过（无变更）</span>
+                <span class="breakdown-label">{{ $t('vulnImport.result.skipped') }}</span>
               </div>
             </div>
             <div class="breakdown-item failed">
               <div class="breakdown-bar" :style="{ width: barPercent(result.failed.length, result.total) }" />
               <div class="breakdown-info">
                 <span class="breakdown-value">{{ result.failed.length }}</span>
-                <span class="breakdown-label">失败</span>
+                <span class="breakdown-label">{{ $t('vulnImport.result.failed') }}</span>
               </div>
             </div>
           </div>
@@ -156,12 +156,12 @@
           <div v-if="result.failed.length" class="fail-section">
             <div class="fail-header">
               <el-icon :size="16"><WarningFilled /></el-icon>
-              <span>失败详情</span>
+              <span>{{ $t('vulnImport.result.failDetail') }}</span>
             </div>
             <div class="fail-list">
               <div v-for="(f, i) in result.failed" :key="i" class="fail-item">
                 <span class="fail-index">{{ i + 1 }}</span>
-                <span class="fail-name">{{ f.name || '未知条目' }}</span>
+                <span class="fail-name">{{ f.name || $t('vulnImport.result.unknownItem') }}</span>
                 <span class="fail-msg">{{ f.error }}</span>
               </div>
             </div>
@@ -169,7 +169,7 @@
 
           <div v-if="result.success > 0" class="result-success-msg">
             <el-icon :size="16" class="check-icon"><CircleCheck /></el-icon>
-            <span>成功处理 {{ result.success }} 条 CVE（新建 {{ result.created }} / 更新 {{ result.updated }}），点击「查看 CVE 列表」浏览</span>
+            <span>{{ $t('vulnImport.result.successMsg', { success: result.success, created: result.created, updated: result.updated }) }}</span>
           </div>
         </div>
 
@@ -177,12 +177,12 @@
         <div v-else class="result-panel empty">
           <div class="empty-result">
             <el-icon :size="48" class="empty-icon"><Upload /></el-icon>
-            <h3 class="empty-title">等待导入</h3>
-            <p class="empty-desc">选择文件或粘贴 CVE 内容后，点击「解析并导入」开始处理</p>
+            <h3 class="empty-title">{{ $t('vulnImport.empty.title') }}</h3>
+            <p class="empty-desc">{{ $t('vulnImport.empty.desc') }}</p>
             <div class="empty-features">
-              <div class="feature-item"><span class="feature-dot" /><span>自动格式识别</span></div>
-              <div class="feature-item"><span class="feature-dot" /><span>去重合并（仅补缺）</span></div>
-              <div class="feature-item"><span class="feature-dot" /><span>批量多文件支持</span></div>
+              <div class="feature-item"><span class="feature-dot" /><span>{{ $t('vulnImport.empty.features.auto') }}</span></div>
+              <div class="feature-item"><span class="feature-dot" /><span>{{ $t('vulnImport.empty.features.dedup') }}</span></div>
+              <div class="feature-item"><span class="feature-dot" /><span>{{ $t('vulnImport.empty.features.batch') }}</span></div>
             </div>
           </div>
         </div>
@@ -190,12 +190,12 @@
     </div>
 
     <!-- 模板抽屉 -->
-    <el-drawer v-model="templateDrawer" title="导入模板" size="640px" direction="rtl">
+    <el-drawer v-model="templateDrawer" :title="$t('vulnImport.template.drawerTitle')" size="640px" direction="rtl">
       <el-tabs v-model="activeTemplate">
         <el-tab-pane v-for="t in CVE_TEMPLATE_LIST" :key="t.key" :label="t.label" :name="t.key">
           <div class="template-bar">
             <span class="template-ext">{{ t.ext }}</span>
-            <el-button text size="small" :icon="CopyDocument" @click="copyTemplate(t.content)">复制</el-button>
+            <el-button text size="small" :icon="CopyDocument" @click="copyTemplate(t.content)">{{ $t('vulnImport.template.copy') }}</el-button>
           </div>
           <pre class="template-code"><code>{{ t.content }}</code></pre>
         </el-tab-pane>
@@ -206,6 +206,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
   UploadFilled, EditPen, Document, Close, Upload, Refresh,
@@ -217,6 +218,7 @@ import { CVE_TEMPLATE_LIST } from '@/utils/cveTemplates'
 import PageHeader from '@/components/common/PageHeader.vue'
 import type { VulnImportResult } from '@/types/vuln'
 
+const { t } = useI18n()
 const uploadRef = ref()
 
 const mode = ref<'file' | 'paste'>('file')
@@ -257,9 +259,9 @@ function detectFormatFromName(name: string): string {
     yml: 'YAML',
     md: 'Markdown',
     markdown: 'Markdown',
-    txt: '文本',
+    txt: t('vulnImport.format.txt'),
   }
-  return map[ext || ''] || '未知格式'
+  return map[ext || ''] || t('vulnImport.detectUnknown')
 }
 
 function handleFileChange(uploadFile: { raw: File }) {
@@ -314,7 +316,7 @@ function resetImport() {
 
 async function copyTemplate(content: string) {
   await copyToClipboard(content)
-  ElMessage.success('模板已复制')
+  ElMessage.success(t('vulnImport.template.copied'))
 }
 </script>
 

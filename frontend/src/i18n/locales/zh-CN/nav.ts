@@ -1,0 +1,22 @@
+// 导航与路由标题（SidebarNav / routes.ts meta.title / TopBar）
+export default {
+  dashboard: '工作台',
+  pocManage: 'POC 管理',
+  pocList: 'POC 列表',
+  pocCreate: '新建 POC',
+  pocDetail: 'POC 详情',
+  pocEdit: '编辑 POC',
+  pocImport: '导入 POC',
+  vulnManage: 'CVE 漏洞库',
+  vulnList: 'CVE 列表',
+  vulnCreate: '新建 CVE',
+  vulnDetail: 'CVE 详情',
+  vulnEdit: '编辑 CVE',
+  vulnImport: '导入 CVE',
+  tagManage: '标签管理',
+  pluginPanel: '插件面板',
+  systemManage: '系统管理',
+  userManage: '用户管理',
+  auditLog: '审计日志',
+  profile: '个人信息',
+}
