@@ -33,6 +33,42 @@
 - **Plugin Framework** — Four slots: Parser, Source, Verifier, Exporter; plug-and-play
 - **Event-driven Architecture** — Async domain event dispatch, decoupled module integration
 
+## Screenshots
+
+### Login & Dashboard
+
+<p align="center"><img src="assets/images/en/Login.png" alt="Login page" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/Dashboard-One.png" alt="Dashboard · Asset overview" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/Dashboard-Two.png" alt="Dashboard · Trends & distribution" width="85%"/></p>
+
+### POC Management
+
+<p align="center"><img src="assets/images/en/PoCList.png" alt="POC list" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/PoCCreate.png" alt="Create POC · Form builder" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/PoCImport.png" alt="POC batch import" width="85%"/></p>
+
+### CVE Database
+
+<p align="center"><img src="assets/images/en/CVEList.png" alt="CVE list" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/CVECreate.png" alt="Create CVE" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/CVEImport.png" alt="CVE batch import" width="85%"/></p>
+
+### Tags / Plugins / Audit Logs / Profile
+
+<p align="center"><img src="assets/images/en/TagsList.png" alt="Tag management" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/Plugins.png" alt="Plugin management" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/AuditLogs.png" alt="Audit logs" width="85%"/></p>
+
+<p align="center"><img src="assets/images/en/UserProfile.png" alt="User profile" width="85%"/></p>
+
 ## Quick Start
 
 ### Prerequisites
