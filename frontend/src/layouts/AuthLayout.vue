@@ -3,15 +3,5 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useAppStore } from '@/stores/app'
-
-const appStore = useAppStore()
-
-onMounted(() => {
-  appStore.initTheme()
-})
+// 主题初始化在 main.ts 中（挂载前）执行，此处无需重复。
 </script>
-
-<style scoped lang="scss">
-</style>
