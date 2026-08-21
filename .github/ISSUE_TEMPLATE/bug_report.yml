@@ -1,0 +1,112 @@
+name: 🐛 Bug 报告
+description: 提交一个可复现的问题或缺陷
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 感谢提交 Bug 🐛
+        请尽量完整填写以下信息，帮助我们更快地定位并修复问题。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰描述 Bug 的表现、发生时机与影响范围。
+      placeholder: |
+        例如：在 POC 列表页点击「导出」后页面无响应，接口返回 500。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 一步一步描述如何复现，尽量提供复现所需的操作路径。
+      placeholder: |
+        1. 使用编辑者账号登录
+        2. 进入「POC 管理」→ 勾选 3 条 POC
+        3. 点击「批量导出」→ 选择 Nuclei YAML 格式
+        4. 观察：浏览器 tab 报错，网络请求 500
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: 预期行为 vs 实际行为
+      description: 预期应该发生什么？实际发生了什么？
+      placeholder: 预期导出 .zip 压缩包；实际弹出「服务器错误」提示且无任何下载。
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 环境信息
+    validations:
+      required: false
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: 复现角色
+      description: 以哪个 RBAC 角色操作时出现？便于复现权限相关缺陷。
+      options:
+        - 未登录 / 查看者
+        - 编辑者
+        - 管理员
+        - 不确定
+      default: 3
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: 版本信息
+      description: 分支 / commit / 版本号（可在服务端 `logs/` 或 `git log` 中获取）
+      placeholder: |
+        - 分支/commit：main @ 3e22080
+        - Python：3.11
+        - Node.js：20
+        - 浏览器：Chrome 126
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 附加信息
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: 服务端日志（含 request_id）、前端控制台报错、页面截图等。**注意脱敏：请勿上传真实 IP、口令或密钥。**
+      placeholder: |
+        将日志、截图粘贴或拖拽到这里。
+        建议包含请求的 request_id，便于在服务端日志中检索对应链路。
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影响与紧急程度说明
+      description: 可选。问题阻塞了哪些操作？期望的修复优先级（P0 阻塞发布 / P1 高 / P2 中 / P3 低）？
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交前确认
+      description: 请确认以下事项后勾选。
+      options:
+        - label: 已检索 Issues，确认没有重复的同类报告
+          required: true
+        - label: 已确保环境变量非默认值问题（尤其 VULNSCOPE_SECRET_KEY）
+        - label: 已脱敏日志中所有敏感信息

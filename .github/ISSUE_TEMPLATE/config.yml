@@ -1,0 +1,13 @@
+# Issue 模板选择页配置
+# 参考：https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests
+
+# 是否允许"Open a blank issue"空白建档入口
+blank_issues_enabled: true
+
+contact_links:
+  - name: 📖 项目文档
+    url: https://github.com/hsuant/VulnScope/blob/main/README.md
+    about: 查阅使用说明、部署方式与环境变量（README.md / README.en.md / docs/）后再提交 Issue。
+  - name: 🔒 安全漏洞报告
+    url: https://github.com/hsuant/VulnScope/security/advisories/new
+    about: 涉及漏洞的安全问题请走 Privately report a security vulnerability，勿公开细节。

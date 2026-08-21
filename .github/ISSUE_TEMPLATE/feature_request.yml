@@ -1,0 +1,75 @@
+name: ✨ 功能建议
+description: 提出一个新功能或对现有功能的改进建议
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 感谢提出建议 ✨
+        请尽量说明**使用场景**（who / when / why），而不仅是想要什么，便于我们判断价值与优先级。
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 动机 / 场景
+      description: 这个功能要解决什么问题？在什么场景下遇到？
+      placeholder: |
+        运维团队每周手动核对 NVD 更新，希望 VulnScope 自动对接 NVD API
+        定时同步 CVE 元数据，减少人工维护。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: 期望行为 / 方案
+      description: 你期望如何实现？尽量描述细节（界面、接口、交互等）。若涉及插件体系（Parser / Source / Verifier / Exporter）请指明落点。
+      placeholder: |
+        新增「设置 → 数据同步」页，支持配置 NVD API Key 与同步频率；
+        提供/  sync 的管理员命令；同步记录写入审计日志。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 你考虑过的其他实现方式，或现有的 workaround。
+      placeholder: 目前用脚本手工导入 JSON/JSONL，希望通过内置能力替代。
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块
+      description: 该功能主要落在哪个模块？
+      options:
+        - 后端 API / 服务
+        - 前端界面
+        - 插件框架（Parser/Source/Verifier/Exporter）
+        - 数据模型 / 迁移
+        - 部署 / Docker / 运维
+        - 其他
+      multiple: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 期望优先级
+      description: 该功能对你的影响程度
+      options:
+        - P1 - 高：阻塞当前工作流，尽快需要
+        - P2 - 中：明显提升效率，可规划排期
+        - P3 - 低：锦上添花
+      default: 1
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 已检索 Issues 与 README/设计文档，确认不属于已有或已规划能力（可参考 TODO.md）
+          required: true
+        - label: 如需 API 变更，愿意参与讨论接口契约与数据结构
