@@ -62,8 +62,12 @@ export const useAppStore = defineStore('app', () => {
     setupSystemListener(mode)
   }
 
+  // 三态循环切换：light → dark → system → light。
+  // 点击按钮顺序切换，下拉列表则可直接选定目标模式。
   function toggleTheme() {
-    const next: ThemeMode = resolvedTheme.value === 'dark' ? 'light' : 'dark'
+    const order: ThemeMode[] = ['light', 'dark', 'system']
+    const idx = order.indexOf(themeMode.value)
+    const next = order[(idx + 1) % order.length]
     setThemeMode(next)
   }
 
