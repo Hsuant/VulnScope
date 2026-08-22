@@ -28,30 +28,28 @@ class NotificationService:
 
         base = select(Notification).where(Notification.user_id == self._user_id)
         if unread_only:
-            base = base.where(Notification.is_read == False)
+            base = base.where(Notification.is_read == False)  # noqa: E712
 
         total = (
             self._db.scalar(
-                select(func.count()).select_from(Notification).where(
-                    Notification.user_id == self._user_id
-                )
+                select(func.count()).select_from(Notification).where(Notification.user_id == self._user_id)
             )
             or 0
         )
         unread_count = (
             self._db.scalar(
-                select(func.count()).select_from(Notification).where(
+                select(func.count())
+                .select_from(Notification)
+                .where(
                     Notification.user_id == self._user_id,
-                    Notification.is_read == False,
+                    Notification.is_read == False,  # noqa: E712
                 )
             )
             or 0
         )
 
         items = self._db.scalars(
-            base.order_by(Notification.created_at.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            base.order_by(Notification.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         ).all()
 
         return list(items), total, unread_count
@@ -59,9 +57,11 @@ class NotificationService:
     def unread_count(self) -> int:
         return (
             self._db.scalar(
-                select(func.count()).select_from(Notification).where(
+                select(func.count())
+                .select_from(Notification)
+                .where(
                     Notification.user_id == self._user_id,
-                    Notification.is_read == False,
+                    Notification.is_read == False,  # noqa: E712
                 )
             )
             or 0
@@ -83,7 +83,7 @@ class NotificationService:
             self._db.query(Notification)
             .filter(
                 Notification.user_id == self._user_id,
-                Notification.is_read == False,
+                Notification.is_read == False,  # noqa: E712
             )
             .update({"is_read": True, "read_at": now}, synchronize_session="fetch")
         )

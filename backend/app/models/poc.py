@@ -19,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
 from app.db.base import Base, IntPKMixin, TimestampMixin
+from app.models.comment import PocComment
 
 
 class Poc(Base, IntPKMixin, TimestampMixin):
@@ -56,7 +57,9 @@ class Poc(Base, IntPKMixin, TimestampMixin):
     attachments: Mapped[list[PocAttachment]] = relationship(
         back_populates="poc", cascade="all, delete-orphan"
     )
-    comments: Mapped[list[PocComment]] = relationship(back_populates="poc", cascade="all, delete-orphan")
+    comments: Mapped[list[PocComment]] = relationship(
+        back_populates="poc", cascade="all, delete-orphan"
+    )  # noqa: F821
 
 
 class PocVersion(Base, IntPKMixin):
