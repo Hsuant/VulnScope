@@ -53,11 +53,6 @@
         <template #title>{{ $t('nav.pluginPanel') }}</template>
       </el-menu-item>
 
-      <el-menu-item index="/subscriptions">
-        <el-icon><Bell /></el-icon>
-        <template #title>{{ $t('nav.subscriptions') }}</template>
-      </el-menu-item>
-
       <el-sub-menu v-if="isAdmin" index="/system">
         <template #title>
           <el-icon><Tools /></el-icon>

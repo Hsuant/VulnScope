@@ -19,5 +19,4 @@ export default {
   userManage: 'User Management',
   auditLog: 'Audit Log',
   profile: 'Profile',
-  subscriptions: 'My Subscriptions',
 }

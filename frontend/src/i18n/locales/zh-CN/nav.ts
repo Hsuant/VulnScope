@@ -19,5 +19,4 @@ export default {
   userManage: '用户管理',
   auditLog: '审计日志',
   profile: '个人信息',
-  subscriptions: '我的订阅',
 }

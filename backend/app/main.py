@@ -56,10 +56,6 @@ async def lifespan(app: FastAPI):
         event_bus.subscribe(event_type.value, _dashboard_cache_invalidator)
     logger.info("registered dashboard cache invalidator for %d event types", len(EventTypes))
 
-    # Register subscription event consumers
-    from app.services.subscription_event_handler import register_subscription_handlers
-    register_subscription_handlers()
-
     # 发现并加载内置插件
     from app.plugins.registry import registry
 
@@ -95,18 +91,15 @@ def create_app() -> FastAPI:
     from app.api.v1 import (
         audit,
         auth,
-        comments,
         dashboard,
         import_export,
         poc,
         products,
-        subscriptions,
         tags,
         users,
         vulns,
     )
     from app.api.v1 import plugins as plugins_router
-    from app.api.v1 import notifications as notifications_router
 
     api_prefix = settings.API_PREFIX
     app.include_router(health.router, prefix=api_prefix)
@@ -119,9 +112,6 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix=api_prefix)
     app.include_router(plugins_router.router, prefix=api_prefix)
     app.include_router(import_export.router, prefix=api_prefix)
-    app.include_router(subscriptions.router, prefix=api_prefix)  # subscriptions: /subscriptions
-    app.include_router(comments.router, prefix=api_prefix)  # comments: /pocs/{id}/comments
-    app.include_router(notifications_router.router, prefix=api_prefix)  # notifications: /notifications
     app.include_router(products.router, prefix=api_prefix)
 
     # /metrics 挂载于根路径（Prometheus 传统约定，不套 API 前缀）
