@@ -26,6 +26,8 @@
 - **Tag & Category System** — Namespace-based tags + tree categories for flexible POC organization
 - **CVE Vulnerability Database** — Auto CVE association, bidirectional search between vulns and POCs
 - **Dashboard & Analytics** — Severity/status/source distribution, creation trends, top tags, top authors
+- **Subscription Tracking** — Subscribe by CVE / vendor / tag; get notified on new POC imports or updates
+- **Team Comments** — POC detail page comments with threaded replies, draft review, edit history
 - **RBAC** — Three roles (viewer / editor / admin), granular access control
 - **Audit Logging** — Full write operation trail with before/after summaries and IP recording
 - **Login Rate Limiting** — Per-IP fixed-window throttling against brute force; over-limit returns 429 + `Retry-After`; counter resets on successful login
@@ -290,6 +292,8 @@ VulnScope/
 | GET | `/api/v1/dashboard/*` | Dashboard stats | Required |
 | GET/POST/PUT/DELETE | `/api/v1/users` | User management | admin |
 | GET | `/api/v1/users/roles` | Role list | admin |
+| GET/POST | `/api/v1/subscriptions` | List/Create subscriptions | Required |
+| PUT/DELETE | `/api/v1/subscriptions/{id}` | Update notification prefs / Cancel subscription | Required |
 | GET | `/api/v1/plugins` | Plugin list | Required |
 | GET | `/api/v1/plugins/{slot}` | Plugins by slot | Required |
 | GET | `/api/v1/audit-logs` | Audit logs | admin |

@@ -26,6 +26,8 @@
 - **标签分类系统** — 命名空间标签 + 树形分类，灵活组织 POC 资产
 - **CVE 漏洞库** — CVE 详情、编辑、新建、批量导入（JSON/JSONL/YAML/Markdown），POC 导入自动同步 CVE 元数据，漏洞与 POC 双向检索
 - **统计看板** — 严重级别/状态/来源分布、创建趋势、热门标签、高产作者
+- **订阅跟踪** — 按 CVE / 厂商 / 标签订阅，新 POC 入库或更新时实时掌握动态
+- **团队评论** — POC 详情页评论与回复，支持 draft 状态协作评审、编辑留痕
 - **RBAC 权限** — 三角色（查看者/编辑者/管理员），颗粒度操作控制
 - **审计日志** — 所有写操作全量留痕，操作前后摘要 + IP 记录
 - **登录限流** — 按 IP 固定窗口限流防爆破，超限返回 429 + `Retry-After`，登录成功自动清零
@@ -289,6 +291,8 @@ VulnScope/
 | GET | `/api/v1/vulns/by-cve/{cve_id}` | 按 CVE 编号查询 | 需认证 |
 | POST | `/api/v1/vulns/import` | 批量导入 CVE（json/jsonl/yaml/markdown） | editor/admin |
 | DELETE | `/api/v1/vulns/{id}` | 删除单个/批量 CVE | editor/admin |
+| GET/POST | `/api/v1/subscriptions` | 我的订阅列表/创建订阅 | 需认证 |
+| PUT/DELETE | `/api/v1/subscriptions/{id}` | 更新通知偏好/取消订阅 | 需认证 |
 | GET | `/api/v1/dashboard/*` | 统计看板 | 需认证 |
 | GET/POST/PUT/DELETE | `/api/v1/users` | 用户管理 | admin |
 | GET | `/api/v1/users/roles` | 角色列表 | admin |
@@ -347,6 +351,8 @@ cd backend
 - **标签管理** — 命名空间体系、新建/编辑/删除标签、最佳实践
 - **导入导出** — 批量文件上传、粘贴文本、格式自动识别
 - **CVE 漏洞库** — 列表/详情/编辑/新建、批量导入（JSON/JSONL/YAML/Markdown）、POC 导入联动同步
+- **订阅跟踪** — 按 CVE / 厂商 / 标签创建订阅，管理通知偏好
+- **POC 评论** — 详情页评论与回复，团队协作审核
 - **常见问题** — 名称冲突、格式限制、版本回滚、内容去重
 
 ## 开发里程碑
