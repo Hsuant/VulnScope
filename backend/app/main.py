@@ -58,6 +58,7 @@ async def lifespan(app: FastAPI):
 
     # Register subscription event consumers
     from app.services.subscription_event_handler import register_subscription_handlers
+
     register_subscription_handlers()
 
     # 发现并加载内置插件
@@ -105,8 +106,8 @@ def create_app() -> FastAPI:
         users,
         vulns,
     )
-    from app.api.v1 import plugins as plugins_router
     from app.api.v1 import notifications as notifications_router
+    from app.api.v1 import plugins as plugins_router
 
     api_prefix = settings.API_PREFIX
     app.include_router(health.router, prefix=api_prefix)
