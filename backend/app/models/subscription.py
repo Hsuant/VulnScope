@@ -22,9 +22,7 @@ class Subscription(Base, IntPKMixin, TimestampMixin):
         {"sqlite_autoincrement": True},
     )
 
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("user.id"), nullable=False, index=True
-    )
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("user.id"), nullable=False, index=True)
     sub_type: Mapped[str] = mapped_column(
         String(32), nullable=False, index=True, comment="订阅类型: cve / vendor / tag"
     )

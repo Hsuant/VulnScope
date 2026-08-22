@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.poc import Poc
+from app.models.poc import Poc, Product
 from app.models.subscription import Subscription
 
 
@@ -76,12 +76,11 @@ class SubscriptionMatcher:
             self._db.refresh(poc, attribute_names=["affected"])
         slugs: set[str] = set()
         for aff in poc.affected:
-            try:
-                product = aff.product
-                if product and product.vendor:
-                    slugs.add(product.vendor.slug)
-            except Exception:
+            if aff.product_id is None:
                 continue
+            product = self._db.get(Product, aff.product_id)
+            if product and product.vendor:
+                slugs.add(product.vendor.slug)
         return list(slugs)
 
     def _find_subscriptions(self, sub_type: str, target_id: str) -> list[Subscription]:

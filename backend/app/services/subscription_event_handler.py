@@ -1,4 +1,4 @@
-"""Subscription event consumers: listen to poc.created / poc.updated,
+﻿"""Subscription event consumers: listen to poc.created / poc.updated,
 run matching, and create notification records.
 
 These handlers are registered on EventBus, invoked asynchronously by
@@ -16,7 +16,6 @@ from app.core.logging import get_logger
 from app.db.session import SessionLocal
 from app.models.notification import Notification
 from app.models.poc import Poc
-from app.models.subscription import Subscription
 from app.services.poc_service import _load_poc_relations
 from app.services.subscription_matcher import SubscriptionMatcher
 
@@ -71,10 +70,13 @@ def _handle_poc_event(event: DomainEvent, event_type: str) -> None:
             return
 
         created_count = 0
-        for sub, match_reason in matches:
+        for sub, _match_reason in matches:
             if event_type == "poc.created" and not sub.notify_on_new:
                 continue
-            if event_type in ("poc.updated", "poc.version_created", "poc.status_changed") and not sub.notify_on_update:
+            if (
+                event_type in ("poc.updated", "poc.version_created", "poc.status_changed")
+                and not sub.notify_on_update
+            ):
                 continue
 
             title = _build_title(sub.sub_type, sub.target_id, event_type)

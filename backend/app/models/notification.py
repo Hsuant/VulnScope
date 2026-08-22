@@ -12,7 +12,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,33 +32,21 @@ class Notification(Base, IntPKMixin, TimestampMixin):
         {"sqlite_autoincrement": True},
     )
 
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("user.id"), nullable=False, index=True
-    )
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False, index=True)
     notification_type: Mapped[str] = mapped_column(
         String(32), nullable=False, comment="通知类型: new_poc / poc_updated"
     )
-    title: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="通知标题"
-    )
-    content: Mapped[str] = mapped_column(
-        Text, nullable=False, default="", comment="通知正文摘要"
-    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment="通知标题")
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="通知正文摘要")
     sub_type: Mapped[str] = mapped_column(
         String(32), nullable=False, comment="匹配的订阅类型: cve / vendor / tag"
     )
-    sub_target: Mapped[str] = mapped_column(
-        String(128), nullable=False, comment="匹配的订阅目标值"
-    )
+    sub_target: Mapped[str] = mapped_column(String(128), nullable=False, comment="匹配的订阅目标值")
     ref_type: Mapped[str] = mapped_column(
         String(32), nullable=False, default="poc", comment="关联资源类型: poc"
     )
-    ref_id: Mapped[int] = mapped_column(
-        Integer, nullable=False, comment="关联资源 ID"
-    )
-    is_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, comment="是否已读"
-    )
+    ref_id: Mapped[int] = mapped_column(Integer, nullable=False, comment="关联资源 ID")
+    is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="是否已读")
     read_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, comment="阅读时间"
     )

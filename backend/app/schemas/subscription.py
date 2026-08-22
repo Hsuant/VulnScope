@@ -11,12 +11,11 @@ class SubscriptionCreate(BaseModel):
     """创建订阅请求体。"""
 
     sub_type: str = Field(
-        ..., description="订阅类型: cve / vendor / tag",
+        ...,
+        description="订阅类型: cve / vendor / tag",
         pattern=r"^(cve|vendor|tag)$",
     )
-    target_id: str = Field(
-        ..., max_length=128, description="目标标识: CVE编号 / 厂商slug / 标签ID"
-    )
+    target_id: str = Field(..., max_length=128, description="目标标识: CVE编号 / 厂商slug / 标签ID")
     notify_on_update: bool = Field(default=True, description="POC 更新时通知")
     notify_on_new: bool = Field(default=True, description="新 POC 导入时通知")
 

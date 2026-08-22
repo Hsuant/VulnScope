@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request
 
 from app.api.deps import CurrentUser, DbSession
-from app.schemas.common import Page, ok
+from app.schemas.common import ok
 from app.schemas.notification import NotificationListResponse, NotificationResponse
 from app.services.notification_service import NotificationService
 
@@ -24,7 +24,9 @@ def list_notifications(
     service = NotificationService(db, user.id)
     items, total, unread_count = service.list_mine(page=page, page_size=page_size, unread_only=unread_only)
     sub_items = [NotificationResponse.model_validate(n).model_dump() for n in items]
-    result = NotificationListResponse(items=sub_items, total=total, unread_count=unread_count, page=page, page_size=page_size)
+    result = NotificationListResponse(
+        items=sub_items, total=total, unread_count=unread_count, page=page, page_size=page_size
+    )
     return ok(result.model_dump(), request)
 
 

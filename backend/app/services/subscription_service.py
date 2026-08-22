@@ -39,7 +39,7 @@ class SubscriptionService:
             try:
                 tag_id = int(data.target_id)
             except ValueError:
-                raise AppError(ErrorCode.REQUEST_INVALID, "标签订阅的 target_id 须为标签 ID 数字")
+                raise AppError(ErrorCode.REQUEST_INVALID, "标签订阅的 target_id 须为标签 ID 数字") from None
             tag = self._db.get(Tag, tag_id)
             if tag is None:
                 raise NotFoundError("Tag", data.target_id)
@@ -90,9 +90,7 @@ class SubscriptionService:
         self._db.delete(sub)
         self._db.commit()
 
-    def list_mine(
-        self, page: int = 1, page_size: int = 20
-    ) -> tuple[list[Subscription], int]:
+    def list_mine(self, page: int = 1, page_size: int = 20) -> tuple[list[Subscription], int]:
         """分页查询我的订阅列表。"""
         if page_size > self.MAX_PAGE_SIZE:
             page_size = self.MAX_PAGE_SIZE
@@ -100,16 +98,12 @@ class SubscriptionService:
         base = select(Subscription).where(Subscription.user_id == self._user_id)
         total = (
             self._db.scalar(
-                select(func.count()).select_from(Subscription).where(
-                    Subscription.user_id == self._user_id
-                )
+                select(func.count()).select_from(Subscription).where(Subscription.user_id == self._user_id)
             )
             or 0
         )
         items = self._db.scalars(
-            base.order_by(Subscription.created_at.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            base.order_by(Subscription.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         ).all()
         return list(items), total
 
@@ -118,9 +112,7 @@ class SubscriptionService:
         if sub.sub_type == "cve":
             return sub.target_id  # CVE 编号本身就是展示名
         elif sub.sub_type == "vendor":
-            vendor = self._db.scalar(
-                select(Vendor).where(Vendor.slug == sub.target_id)
-            )
+            vendor = self._db.scalar(select(Vendor).where(Vendor.slug == sub.target_id))
             return vendor.name if vendor else sub.target_id
         elif sub.sub_type == "tag":
             try:
