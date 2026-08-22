@@ -1,0 +1,27 @@
+// 评论/讨论页面文案（CommentSection.vue / CommentCard.vue）
+export default {
+  title: '评论',
+  titleWithCount: '评论 ({count})',
+  placeholder: '对此 POC 发表评论...',
+  reply: '回复',
+  replyTo: '回复 {username}',
+  edit: '编辑',
+  delete: '删除',
+  edited: '已编辑',
+  deleted: '该评论已被删除',
+  send: '发送',
+  cancel: '取消',
+  save: '保存',
+  empty: '暂无评论，来发表第一条评论吧',
+  deleteConfirm: '确定删除该评论？',
+  deleteSuccess: '删除成功',
+  createSuccess: '发表成功',
+  editSuccess: '编辑成功',
+  editWindowExpired: '超过编辑窗口时间（30 分钟），无法编辑',
+  maxDepth: '回复嵌套已达上限',
+  messages: {
+    contentRequired: '请输入评论内容',
+    sendError: '发表失败',
+    deleteError: '删除失败',
+  },
+}

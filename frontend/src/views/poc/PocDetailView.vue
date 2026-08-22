@@ -233,6 +233,11 @@
       </div>
     </div>
 
+    <!-- 评论区域 -->
+    <div class="detail-comments">
+      <CommentSection ref="commentSectionRef" :poc-id="pocId" />
+    </div>
+
     <!-- 克隆对话框 -->
     <el-dialog v-model="cloneDialogVisible" :title="$t('pocDetail.cloneTitle')" width="420">
       <el-form>
@@ -264,6 +269,7 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import TagChip from '@/components/common/TagChip.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import MarkdownRenderer from '@/components/poc/MarkdownRenderer.vue'
+import CommentSection from '@/components/comment/CommentSection.vue'
 import type { MdHeading } from '@/utils/markdown'
 import type { PocDetail, PocVersion, PocSourceRecord } from '@/types/poc'
 
@@ -277,6 +283,7 @@ const loading = ref(true)
 const poc = ref<PocDetail | null>(null)
 const versions = ref<PocVersion[]>([])
 const sourceRecords = ref<PocSourceRecord[]>([])
+const commentSectionRef = ref<InstanceType<typeof CommentSection> | null>(null)
 const cloneDialogVisible = ref(false)
 const cloneName = ref('')
 const cloning = ref(false)
@@ -697,5 +704,10 @@ onMounted(loadData)
   align-items: center;
   margin-left: 4px;
   vertical-align: middle;
+}
+
+.detail-comments {
+  margin-top: $spacing-xxl;
+  padding: 0 $spacing-xl $spacing-xl;
 }
 </style>

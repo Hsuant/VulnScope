@@ -1,0 +1,27 @@
+// Comment/Collaboration page text (CommentSection.vue / CommentCard.vue)
+export default {
+  title: 'Comments',
+  titleWithCount: 'Comments ({count})',
+  placeholder: 'Write a comment...',
+  reply: 'Reply',
+  replyTo: 'Reply to {username}',
+  edit: 'Edit',
+  delete: 'Delete',
+  edited: 'edited',
+  deleted: 'This comment has been deleted',
+  send: 'Send',
+  cancel: 'Cancel',
+  save: 'Save',
+  empty: 'No comments yet. Be the first to comment!',
+  deleteConfirm: 'Delete this comment?',
+  deleteSuccess: 'Deleted successfully',
+  createSuccess: 'Posted successfully',
+  editSuccess: 'Edited successfully',
+  editWindowExpired: 'Edit window (30 min) has expired',
+  maxDepth: 'Maximum reply depth reached',
+  messages: {
+    contentRequired: 'Content is required',
+    sendError: 'Failed to post comment',
+    deleteError: 'Failed to delete',
+  },
+}

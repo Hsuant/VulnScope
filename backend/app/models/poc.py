@@ -56,6 +56,7 @@ class Poc(Base, IntPKMixin, TimestampMixin):
     attachments: Mapped[list[PocAttachment]] = relationship(
         back_populates="poc", cascade="all, delete-orphan"
     )
+    comments: Mapped[list[PocComment]] = relationship(back_populates="poc", cascade="all, delete-orphan")
 
 
 class PocVersion(Base, IntPKMixin):
