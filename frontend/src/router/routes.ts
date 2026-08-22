@@ -111,6 +111,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/system/ProfileView.vue'),
         meta: { title: 'nav.profile', icon: 'User' },
       },
+      {
+        path: 'subscriptions',
+        name: 'SubscriptionList',
+        component: () => import('@/views/subscription/SubscriptionView.vue'),
+        meta: { title: 'nav.subscriptions', icon: 'Bell' },
+      },
     ],
   },
   {
@@ -130,7 +136,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
@@ -139,6 +145,16 @@ router.beforeEach((to, _from, next) => {
 
   if (to.name === 'Login' && authStore.isAuthenticated) {
     return next({ name: 'Dashboard' })
+  }
+
+  // 确保用户信息已加载，避免角色校验时 user 为 null 导致误跳到 /403
+  if (to.meta.requiresAuth && authStore.isAuthenticated && !authStore.user) {
+    try {
+      await authStore.fetchCurrentUser()
+    } catch {
+      authStore.logout()
+      return next({ name: 'Login', query: { redirect: to.fullPath } })
+    }
   }
 
   const requiredRoles = to.meta.roles as string[] | undefined

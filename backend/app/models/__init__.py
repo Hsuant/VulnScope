@@ -1,5 +1,8 @@
 """ORM 模型聚合导出：import 即完成模型注册（init_db.create_all 依赖）。"""
 
+from app.models.comment import PocComment
+from app.models.notification import Notification
+from app.models.subscription import Subscription
 from app.models.poc import (
     AuditLog,
     Category,
@@ -39,4 +42,7 @@ __all__ = [
     "PocSourceRecord",
     "PocAttachment",
     "AuditLog",
+    "PocComment",
+    "Notification",
+    "Subscription",
 ]
