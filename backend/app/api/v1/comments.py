@@ -8,7 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from app.api.deps import CurrentUser, DbSession
-from app.schemas.comment import CommentCreate, CommentResponse, CommentUpdate
+from app.schemas.comment import CommentCreate, CommentUpdate
 from app.schemas.common import ok
 from app.services.comment_service import CommentService
 
@@ -43,7 +43,7 @@ def create_comment(
     最大嵌套深度 2 级，超过时自动挂到上一级。
     """
     service = CommentService(db, user.id)
-    comment = service.create(poc_id, body)
+    service.create(poc_id, body)
     # 重新加载完整的树形结构获取最新状态
     tree = service.list_for_poc(poc_id)
     return ok([c.model_dump() for c in tree], request)

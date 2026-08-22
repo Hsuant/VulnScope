@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import BigInteger, Boolean, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, IntPKMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.poc import Poc
+    from app.models.user import User
 
 
 class PocComment(Base, IntPKMixin, TimestampMixin):
@@ -22,29 +28,24 @@ class PocComment(Base, IntPKMixin, TimestampMixin):
 
     __table_args__ = {"sqlite_autoincrement": True}
 
-    poc_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("poc.id"), nullable=False, index=True
-    )
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("user.id"), nullable=False, index=True
-    )
+    poc_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("poc.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("user.id"), nullable=False, index=True)
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("poc_comment.id"), nullable=True, index=True,
+        BigInteger,
+        ForeignKey("poc_comment.id"),
+        nullable=True,
+        index=True,
         comment="父评论 ID，NULL 表示顶级评论",
     )
-    content: Mapped[str] = mapped_column(
-        Text, nullable=False, comment="评论内容（纯文本，最大 10000 字符）"
-    )
-    edited: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, comment="是否已编辑"
-    )
+    content: Mapped[str] = mapped_column(Text, nullable=False, comment="评论内容（纯文本，最大 10000 字符）")
+    edited: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="是否已编辑")
     deleted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, comment="是否已删除（软删除，保留占位）"
     )
 
     # 关联
-    poc: Mapped["Poc"] = relationship(back_populates="comments")  # noqa: F821
-    user: Mapped["User"] = relationship(lazy="joined")  # noqa: F821
+    poc: Mapped[Poc] = relationship(back_populates="comments")
+    user: Mapped[User] = relationship(lazy="joined")
     replies: Mapped[list[PocComment]] = relationship(
         back_populates="parent",
         cascade="all, delete-orphan",

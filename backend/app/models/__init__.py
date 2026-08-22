@@ -2,7 +2,6 @@
 
 from app.models.comment import PocComment
 from app.models.notification import Notification
-from app.models.subscription import Subscription
 from app.models.poc import (
     AuditLog,
     Category,
@@ -21,6 +20,7 @@ from app.models.poc import (
     Vendor,
     Vuln,
 )
+from app.models.subscription import Subscription
 from app.models.user import Role, User
 
 __all__ = [

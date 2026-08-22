@@ -53,20 +53,14 @@ class CommentService:
             raise NotFoundError("POC", str(poc_id))
 
         # 校验父评论存在且属于同一 POC
-        parent_depth = 0
         if data.parent_id:
             parent = self._get_or_404(data.parent_id)
             if parent.poc_id != poc_id:
-                raise AppError(
-                    ErrorCode.REQUEST_INVALID, "父评论不属于该 POC"
-                )
+                raise AppError(ErrorCode.REQUEST_INVALID, "父评论不属于该 POC")
             # 计算父评论的深度：如果父评论本身是回复，则其深度为 1，否则为 0
-            parent_depth = 1 if parent.parent_id is not None else 0
             # 如果父评论已被删除，不允许回复
             if parent.deleted:
-                raise AppError(
-                    ErrorCode.REQUEST_INVALID, "无法回复已删除的评论"
-                )
+                raise AppError(ErrorCode.REQUEST_INVALID, "无法回复已删除的评论")
 
         comment = PocComment(
             poc_id=poc_id,
@@ -80,11 +74,15 @@ class CommentService:
 
         # 发布事件
         event_bus.publish(
-            DomainEvent("poc.commented", str(poc_id), {
-                "comment_id": comment.id,
-                "user_id": self._user_id,
-                "parent_id": data.parent_id,
-            })
+            DomainEvent(
+                "poc.commented",
+                str(poc_id),
+                {
+                    "comment_id": comment.id,
+                    "user_id": self._user_id,
+                    "parent_id": data.parent_id,
+                },
+            )
         )
         return comment
 
@@ -124,12 +122,17 @@ class CommentService:
         self._check_owner(comment)
 
         # 检查是否有子回复
-        has_replies = self._db.scalar(
-            select(PocComment.id).where(
-                PocComment.parent_id == comment_id,
-                PocComment.deleted == False,  # noqa: E712
-            ).limit(1)
-        ) is not None
+        has_replies = (
+            self._db.scalar(
+                select(PocComment.id)
+                .where(
+                    PocComment.parent_id == comment_id,
+                    PocComment.deleted == False,  # noqa: E712
+                )
+                .limit(1)
+            )
+            is not None
+        )
 
         if has_replies:
             comment.content = "该评论已被删除"
@@ -171,9 +174,7 @@ class CommentService:
         # 软删除的评论不展示子回复的内容（但保留结构）
         replies = []
         if not comment.deleted:
-            replies = [
-                self._build_tree(reply) for reply in (comment.replies or [])
-            ]
+            replies = [self._build_tree(reply) for reply in (comment.replies or [])]
 
         return CommentResponse(
             id=comment.id,

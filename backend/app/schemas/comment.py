@@ -6,19 +6,14 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 # ── 请求体 ─────────────────────────────────────────────────
 
 
 class CommentCreate(BaseModel):
     """创建评论请求体。"""
 
-    content: str = Field(
-        ..., min_length=1, max_length=10000, description="评论内容（纯文本）"
-    )
-    parent_id: int | None = Field(
-        default=None, description="父评论 ID，NULL 表示顶级评论"
-    )
+    content: str = Field(..., min_length=1, max_length=10000, description="评论内容（纯文本）")
+    parent_id: int | None = Field(default=None, description="父评论 ID，NULL 表示顶级评论")
 
     @field_validator("content")
     @classmethod
@@ -32,9 +27,7 @@ class CommentCreate(BaseModel):
 class CommentUpdate(BaseModel):
     """编辑评论请求体。"""
 
-    content: str = Field(
-        ..., min_length=1, max_length=10000, description="修改后的评论内容"
-    )
+    content: str = Field(..., min_length=1, max_length=10000, description="修改后的评论内容")
 
     @field_validator("content")
     @classmethod
