@@ -22,6 +22,8 @@ import userManage from './en-US/userManage'
 import auditLog from './en-US/auditLog'
 import profile from './en-US/profile'
 import errors from './en-US/errors'
+import subscription from './en-US/subscription'
+import comment from './en-US/comment'
 
 export default {
   common,
@@ -46,4 +48,6 @@ export default {
   auditLog,
   profile,
   errors,
+  subscription,
+  comment,
 }

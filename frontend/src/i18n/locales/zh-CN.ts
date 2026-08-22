@@ -23,6 +23,8 @@ import userManage from './zh-CN/userManage'
 import auditLog from './zh-CN/auditLog'
 import profile from './zh-CN/profile'
 import errors from './zh-CN/errors'
+import subscription from './zh-CN/subscription'
+import comment from './zh-CN/comment'
 
 export default {
   common,
@@ -47,4 +49,6 @@ export default {
   auditLog,
   profile,
   errors,
+  subscription,
+  comment,
 }
