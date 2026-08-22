@@ -43,33 +43,29 @@
       @row-click="onRowClick"
     >
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="cve_id" :label="$t('vulnList.columns.cveId')" width="160" align="center">
+      <el-table-column prop="cve_id" :label="$t('vulnList.columns.cveId')" min-width="160" align="center">
         <template #default="{ row }">
           <span class="cve-id">{{ row.cve_id }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="title" :label="$t('common.columns.title')" min-width="240" align="center" show-overflow-tooltip>
-        <template #default="{ row }">
-          <span class="cell-text">{{ row.title || '-' }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column :label="$t('common.columns.severity')" width="80" align="center">
+      <el-table-column class-name="col-separator" width="1" />
+      <el-table-column :label="$t('common.columns.severity')" width="100" align="center">
         <template #default="{ row }">
           <SeverityBadge v-if="row.severity" :severity="row.severity" />
           <span v-else class="cell-text">-</span>
         </template>
       </el-table-column>
-      <el-table-column label="CVSS" width="72" align="center">
+      <el-table-column label="CVSS" width="90" align="center">
         <template #default="{ row }">
           <span class="cell-count">{{ row.cvss != null ? row.cvss.toFixed(1) : '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column :label="$t('vulnList.columns.pocCount')" width="72" align="center">
+      <el-table-column :label="$t('vulnList.columns.pocCount')" width="90" align="center">
         <template #default="{ row }">
           <span class="cell-count">{{ row.poc_count }}</span>
         </template>
       </el-table-column>
-      <el-table-column :label="$t('common.columns.updatedAt')" width="150" align="center">
+      <el-table-column :label="$t('common.columns.updatedAt')" width="180" align="center">
         <template #default="{ row }">
           <span class="cell-time">{{ formatDate(row.updated_at) }}</span>
         </template>
@@ -376,6 +372,10 @@ onMounted(loadData)
   font-size: $font-caption;
 }
 
+
+.col-separator {
+  border-right: 1px solid var(--el-border-color-light);
+}
 .cell-text {
   color: $text-secondary;
   font-size: $font-caption;
