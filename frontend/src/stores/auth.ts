@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { login as apiLogin, refresh as apiRefresh, getMe } from '@/api/auth'
 import type { UserInfo } from '@/types/auth'
 
@@ -30,8 +29,6 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
-    const router = useRouter()
-    router.push('/login')
   }
 
   async function refreshTokenAction() {

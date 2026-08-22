@@ -36,9 +36,11 @@ service.interceptors.response.use(
           return service(config)
         } catch {
           authStore.logout()
+          window.location.href = '/login'
         }
       } else {
         authStore.logout()
+        window.location.href = '/login'
       }
     }
     const msg = error.response?.data?.message || '网络错误'
