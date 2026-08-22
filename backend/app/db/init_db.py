@@ -219,6 +219,16 @@ SCHEMA_MANIFEST: dict[str, dict] = {
         "purpose": "操作审计日志（动作/资源/明细 JSON/来源 IP/时间）",
         "fields": ["id", "user_id", "action", "resource_type", "resource_id", "detail", "ip", "created_at"],
     },
+    "subscription": {
+        "model": "Subscription",
+        "purpose": "订阅规则（按 CVE/厂商/标签，user_id+sub_type+target_id 唯一）",
+        "fields": ["id", "user_id", "sub_type", "target_id", "notify_on_update", "notify_on_new", "created_at", "updated_at"],
+    },
+    "poc_comment": {
+        "model": "PocComment",
+        "purpose": "POC 评论/讨论（树形回复，支持软删除）",
+        "fields": ["id", "poc_id", "user_id", "parent_id", "content", "edited", "deleted", "created_at", "updated_at"],
+    },
 }
 
 
